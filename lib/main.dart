@@ -6,10 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'providers/auth_provider.dart';
 import 'providers/counter_provider.dart';
 import 'routes/app_router.dart';
-import 'routes/app_routes.dart';
 import 'utils/constants/app_colors.dart';
 import 'utils/constants/app_strings.dart';
 import 'utils/supabase_config.dart';
+import 'views/auth_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         scaffoldBackgroundColor: AppColors.background,
       ),
-      initialRoute: AppRoutes.login,
+      home: const AuthGate(),
       onGenerateRoute: AppRouter.onGenerateRoute,
     );
   }

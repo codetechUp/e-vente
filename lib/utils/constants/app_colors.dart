@@ -4,6 +4,8 @@ class AppColors {
   static const Color primary = Colors.deepPurple;
   static const Color primaryDark = Color(0xFF3B1FA5);
   static const Color accent = Color(0xFFFFB703);
+  static const Color navBackground = Color(0xFF0F172A);
+  static const Color navInactive = Color(0xFFCBD5E1);
 
   static const Color background = Color(0xFFF7F7F7);
   static const Color surface = Colors.white;
