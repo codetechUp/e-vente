@@ -1,19 +1,36 @@
 import '../models/order_model.dart';
 import 'supabase_table_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class OrdersService {
   final SupabaseTableService<OrderModel> _table;
+  final SupabaseClient _client;
 
   OrdersService({SupabaseTableService<OrderModel>? table})
-      : _table = table ??
-            SupabaseTableService<OrderModel>(
-              table: 'orders',
-              primaryKey: 'id',
-              fromJson: OrderModel.fromJson,
-              toJson: (m) => m.toJson(),
-            );
+    : _table =
+          table ??
+          SupabaseTableService<OrderModel>(
+            table: 'orders',
+            primaryKey: 'id',
+            fromJson: OrderModel.fromJson,
+            toJson: (m) => m.toJson(),
+          ),
+      _client = Supabase.instance.client;
 
   Future<List<OrderModel>> getAll() => _table.getAll(orderBy: 'created_at');
+
+  Future<List<OrderModel>> getAllForUser(String userId) async {
+    final rows = await _client
+        .from('orders')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .cast<Map<String, dynamic>>()
+        .map((e) => OrderModel.fromJson(e))
+        .toList();
+  }
 
   Future<OrderModel?> getById(int id) => _table.getById(id);
 

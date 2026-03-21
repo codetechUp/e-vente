@@ -1,0 +1,823 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/app_user_model.dart';
+import '../models/role_model.dart';
+import '../services/app_users_service.dart';
+import '../services/roles_service.dart';
+import '../utils/constants/app_colors.dart';
+import '../utils/constants/app_sizes.dart';
+import '../widgets/app_button.dart';
+import '../widgets/app_text_field.dart';
+
+class UsersManagementView extends StatefulWidget {
+  const UsersManagementView({super.key});
+
+  @override
+  State<UsersManagementView> createState() => _UsersManagementViewState();
+}
+
+class _UsersManagementViewState extends State<UsersManagementView> {
+  final _usersService = AppUsersService();
+  final _rolesService = RolesService();
+
+  late Future<_UsersPageData> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<_UsersPageData> _load() async {
+    final roles = await _rolesService.getAll();
+    final users = await _usersService.getAll();
+    return _UsersPageData(users: users, roles: roles);
+  }
+
+  Future<void> _reload() async {
+    setState(() {
+      _future = _load();
+    });
+  }
+
+  RoleModel? _findRoleByName(List<RoleModel> roles, String name) {
+    for (final r in roles) {
+      if (r.name.toLowerCase().trim() == name.toLowerCase().trim()) {
+        return r;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _showAddUserSheet(List<RoleModel> roles) async {
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddUserSheet(
+        roles: roles,
+        defaultRole:
+            _findRoleByName(roles, 'livreur') ??
+            _findRoleByName(roles, 'boutique') ??
+            _findRoleByName(roles, 'admin'),
+        onCreate: (payload, password) async {
+          final res = await Supabase.instance.client.functions.invoke(
+            'create-user',
+            body: {
+              'name': payload.name,
+              'email': payload.email,
+              'phone': payload.phone,
+              'role_id': payload.roleId,
+              'is_active': payload.isActive,
+              'password': password,
+            },
+          );
+
+          if (res.status != 200) {
+            throw Exception(
+              res.data is Map && (res.data as Map)['error'] != null
+                  ? (res.data as Map)['error']
+                  : 'Erreur création utilisateur',
+            );
+          }
+        },
+      ),
+    );
+
+    if (created == true) {
+      await _reload();
+    }
+  }
+
+  Future<void> _showEditUserSheet(
+    AppUserModel user,
+    List<RoleModel> roles,
+  ) async {
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditUserSheet(
+        user: user,
+        roles: roles,
+        onSave: (patch) async {
+          if (user.id == null) return;
+          await _usersService.updateById(user.id!, patch);
+        },
+      ),
+    );
+
+    if (updated == true) {
+      await _reload();
+    }
+  }
+
+  Future<void> _toggleActive(AppUserModel user, bool value) async {
+    if (user.id == null) return;
+
+    try {
+      await _usersService.updateById(user.id!, {'is_active': value});
+      await _reload();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Utilisateurs'),
+        actions: [
+          IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+        ],
+      ),
+      body: FutureBuilder<_UsersPageData>(
+        future: _future,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSizes.padding),
+                child: Text('Erreur: ${snapshot.error}'),
+              ),
+            );
+          }
+
+          final data = snapshot.data;
+          if (data == null) {
+            return const SizedBox.shrink();
+          }
+
+          final rolesById = <int, RoleModel>{
+            for (final r in data.roles)
+              if (r.id != null) r.id!: r,
+          };
+
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSizes.padding,
+              12,
+              AppSizes.padding,
+              24,
+            ),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(AppSizes.padding),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Comptes',
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${data.users.length} utilisateur(s)',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
+                                  color: AppColors.mutedText,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(
+                      width: 140,
+                      child: AppButton(
+                        label: 'Ajouter',
+                        onPressed: () => _showAddUserSheet(data.roles),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              ...data.users.map((u) {
+                final roleName = u.roleId == null
+                    ? 'Sans rôle'
+                    : (rolesById[u.roleId!]?.name ?? 'Rôle #${u.roleId}');
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _UserTile(
+                    user: u,
+                    roleName: roleName,
+                    onToggle: (v) => _toggleActive(u, v),
+                    onEdit: () => _showEditUserSheet(u, data.roles),
+                  ),
+                );
+              }),
+              if (data.users.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.paddingLg),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.people_outline,
+                        size: 48,
+                        color: AppColors.mutedText,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Aucun utilisateur',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Ajoute ton premier utilisateur (livreur, boutique, admin).',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.mutedText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      AppButton(
+                        label: 'Ajouter',
+                        onPressed: () => _showAddUserSheet(data.roles),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UsersPageData {
+  final List<AppUserModel> users;
+  final List<RoleModel> roles;
+
+  const _UsersPageData({required this.users, required this.roles});
+}
+
+class _UserTile extends StatelessWidget {
+  final AppUserModel user;
+  final String roleName;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onEdit;
+
+  const _UserTile({
+    required this.user,
+    required this.roleName,
+    required this.onToggle,
+    required this.onEdit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final active = user.isActive;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.padding),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: active
+                  ? AppColors.success.withValues(alpha: 0.12)
+                  : AppColors.danger.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(
+              Icons.person,
+              color: active ? AppColors.success : AppColors.danger,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  (user.name == null || user.name!.trim().isEmpty)
+                      ? user.email
+                      : user.name!,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  user.email,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: AppColors.mutedText,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.accent.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    roleName,
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.text,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              IconButton(
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined),
+                color: AppColors.mutedText,
+                tooltip: 'Modifier',
+              ),
+              Text(
+                active ? 'Actif' : 'Inactif',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: active ? AppColors.success : AppColors.danger,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Switch(
+                value: active,
+                activeThumbColor: AppColors.accent,
+                activeTrackColor: AppColors.accent.withValues(alpha: 0.35),
+                onChanged: onToggle,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditUserSheet extends StatefulWidget {
+  final AppUserModel user;
+  final List<RoleModel> roles;
+  final Future<void> Function(Map<String, dynamic> patch) onSave;
+
+  const _EditUserSheet({
+    required this.user,
+    required this.roles,
+    required this.onSave,
+  });
+
+  @override
+  State<_EditUserSheet> createState() => _EditUserSheetState();
+}
+
+class _EditUserSheetState extends State<_EditUserSheet> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _email;
+  late final TextEditingController _phone;
+
+  RoleModel? _role;
+  late bool _isActive;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.user.name ?? '');
+    _email = TextEditingController(text: widget.user.email);
+    _phone = TextEditingController(text: widget.user.phone ?? '');
+    _isActive = widget.user.isActive;
+    _role = widget.roles.firstWhere(
+      (r) => r.id != null && r.id == widget.user.roleId,
+      orElse: () =>
+          widget.roles.isEmpty ? const RoleModel(name: '') : widget.roles.first,
+    );
+    if (_role?.id == null) {
+      _role = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _phone.dispose();
+    super.dispose();
+  }
+
+  String? _emailValidator(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Email obligatoire';
+    if (!v.contains('@')) return 'Email invalide';
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    setState(() => _loading = true);
+
+    try {
+      final patch = <String, dynamic>{
+        'name': _name.text.trim().isEmpty ? null : _name.text.trim(),
+        'email': _email.text.trim(),
+        'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+        'role_id': _role?.id,
+        'is_active': _isActive,
+      };
+
+      await widget.onSave(patch);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSizes.padding,
+        right: AppSizes.padding,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppSizes.radiusLg),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Modifier utilisateur',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 14),
+              AppTextField(
+                controller: _name,
+                label: 'Nom',
+                hint: 'Ex: Mamadou',
+                prefixIcon: const Icon(Icons.badge_outlined),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _email,
+                label: 'Email',
+                hint: 'exemple@mail.com',
+                keyboardType: TextInputType.emailAddress,
+                validator: _emailValidator,
+                prefixIcon: const Icon(Icons.email_outlined),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _phone,
+                label: 'Téléphone',
+                hint: 'Ex: +221 77...',
+                keyboardType: TextInputType.phone,
+                prefixIcon: const Icon(Icons.phone_outlined),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<RoleModel>(
+                    value: _role,
+                    isExpanded: true,
+                    hint: const Text('Choisir un rôle'),
+                    items: widget.roles
+                        .where((r) => r.id != null)
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.name)),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() => _role = value);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Compte actif',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: _isActive,
+                      activeThumbColor: AppColors.accent,
+                      activeTrackColor: AppColors.accent.withValues(
+                        alpha: 0.35,
+                      ),
+                      onChanged: (v) => setState(() => _isActive = v),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'Enregistrer',
+                loading: _loading,
+                onPressed: _loading ? null : _submit,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddUserSheet extends StatefulWidget {
+  final List<RoleModel> roles;
+  final RoleModel? defaultRole;
+  final Future<void> Function(AppUserModel payload, String password) onCreate;
+
+  const _AddUserSheet({
+    required this.roles,
+    required this.defaultRole,
+    required this.onCreate,
+  });
+
+  @override
+  State<_AddUserSheet> createState() => _AddUserSheetState();
+}
+
+class _AddUserSheetState extends State<_AddUserSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _email = TextEditingController();
+  final _phone = TextEditingController();
+  final _password = TextEditingController();
+
+  RoleModel? _role;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _role = widget.defaultRole;
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _email.dispose();
+    _phone.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  String? _emailValidator(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Email obligatoire';
+    if (!v.contains('@')) return 'Email invalide';
+    return null;
+  }
+
+  String? _passwordValidator(String? value) {
+    final v = value ?? '';
+    if (v.isEmpty) return 'Mot de passe obligatoire';
+    if (v.length < 6) return 'Minimum 6 caractères';
+    return null;
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_role?.id == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Choisis un rôle')));
+      return;
+    }
+
+    setState(() => _loading = true);
+
+    try {
+      final payload = AppUserModel(
+        name: _name.text.trim().isEmpty ? null : _name.text.trim(),
+        email: _email.text.trim(),
+        phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+        roleId: _role!.id,
+        isActive: true,
+      );
+
+      await widget.onCreate(payload, _password.text);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: AppSizes.padding,
+        right: AppSizes.padding,
+        top: 12,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppSizes.radiusLg),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 56,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Ajouter un utilisateur',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Créer un compte livreur, boutique ou admin.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.mutedText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 14),
+              AppTextField(
+                controller: _name,
+                label: 'Nom',
+                hint: 'Ex: Mamadou',
+                prefixIcon: const Icon(Icons.badge_outlined),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _email,
+                label: 'Email',
+                hint: 'exemple@mail.com',
+                keyboardType: TextInputType.emailAddress,
+                validator: _emailValidator,
+                prefixIcon: const Icon(Icons.email_outlined),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _phone,
+                label: 'Téléphone',
+                hint: 'Ex: +221 77...',
+                keyboardType: TextInputType.phone,
+                prefixIcon: const Icon(Icons.phone_outlined),
+              ),
+              const SizedBox(height: 12),
+              AppTextField(
+                controller: _password,
+                label: 'Mot de passe',
+                hint: 'Minimum 6 caractères',
+                obscureText: true,
+                validator: _passwordValidator,
+                prefixIcon: const Icon(Icons.lock_outline),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<RoleModel>(
+                    value: _role,
+                    isExpanded: true,
+                    hint: const Text('Choisir un rôle'),
+                    items: widget.roles
+                        .where((r) => r.id != null)
+                        .map(
+                          (r) =>
+                              DropdownMenuItem(value: r, child: Text(r.name)),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() => _role = value);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              AppButton(
+                label: 'Ajouter',
+                loading: _loading,
+                onPressed: _loading ? null : _submit,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/auth_provider.dart';
+import 'providers/cart_provider.dart';
 import 'providers/counter_provider.dart';
 import 'routes/app_router.dart';
 import 'utils/constants/app_colors.dart';
@@ -31,6 +32,7 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CounterProvider()),
       ],
       child: const MyApp(),
