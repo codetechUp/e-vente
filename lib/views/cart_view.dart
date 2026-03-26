@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
+import '../models/app_user_model.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../providers/cart_provider.dart';
+import '../services/app_users_service.dart';
 import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
+import '../services/stocks_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/app_button.dart';
@@ -23,6 +27,8 @@ class CartView extends StatefulWidget {
 class _CartViewState extends State<CartView> {
   final _ordersService = OrdersService();
   final _orderItemsService = OrderItemsService();
+  final _usersService = AppUsersService();
+  final _stocksService = StocksService();
 
   bool _loading = false;
 
@@ -76,6 +82,24 @@ class _CartViewState extends State<CartView> {
       return;
     }
 
+    await _ensureUserRow(user);
+    final appUser = await _usersService.resolveForAuthUser(
+      authUserId: user.id,
+      email: user.email,
+    );
+
+    if (!mounted) return;
+    if (appUser?.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Impossible de retrouver votre profil client pour créer la commande.',
+          ),
+        ),
+      );
+      return;
+    }
+
     final address = await _askDeliveryAddress();
     if (!mounted) return;
     if (address == null) return;
@@ -85,7 +109,7 @@ class _CartViewState extends State<CartView> {
     try {
       final order = await _ordersService.create(
         OrderModel(
-          userId: user.id,
+          userId: appUser!.id,
           status: 'pending',
           totalPrice: cart.totalPrice,
           deliveryAddress: address.isEmpty ? null : address,
@@ -106,9 +130,16 @@ class _CartViewState extends State<CartView> {
             orderId: orderId,
             productId: productId,
             quantity: item.quantity,
-            price: item.product.price,
+            price: item.effectivePrice,
           ),
         );
+      }
+
+      for (final item in cart.items) {
+        final pid = item.product.id;
+        if (pid != null) {
+          await _stocksService.decrementStock(pid, item.quantity);
+        }
       }
 
       cart.clear();
@@ -121,11 +152,48 @@ class _CartViewState extends State<CartView> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final message = switch (e) {
+        PostgrestException ex => ex.message,
+        StorageException ex => ex.message,
+        AuthException ex => ex.message,
+        _ => e.toString(),
+      };
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Erreur commande: $e')));
+      ).showSnackBar(SnackBar(content: Text('Erreur commande: $message')));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _ensureUserRow(User user) async {
+    try {
+      final existing = await _usersService.resolveForAuthUser(
+        authUserId: user.id,
+        email: user.email,
+      );
+      if (existing != null) return;
+
+      final email = user.email;
+      if (email == null || email.trim().isEmpty) return;
+
+      await _usersService.create(
+        AppUserModel(
+          id: user.id,
+          email: email,
+          name: (user.userMetadata?['name'] as String?)?.trim().isEmpty ?? true
+              ? null
+              : (user.userMetadata?['name'] as String?),
+          phone: (user.userMetadata?['phone'] as String?),
+          roleId: null,
+          isActive: true,
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[CartView] _ensureUserRow error=$e');
+      }
+      return;
     }
   }
 
@@ -237,13 +305,23 @@ class _CartViewState extends State<CartView> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '${item.product.price.toStringAsFixed(0)} F',
+                                '${item.effectivePrice.toStringAsFixed(0)} F',
                                 style: Theme.of(context).textTheme.labelLarge
                                     ?.copyWith(
                                       color: AppColors.accent,
                                       fontWeight: FontWeight.w900,
                                     ),
                               ),
+                              if (item.effectivePrice < item.product.price)
+                                Text(
+                                  '${item.product.price.toStringAsFixed(0)} F',
+                                  style: Theme.of(context).textTheme.labelSmall
+                                      ?.copyWith(
+                                        decoration: TextDecoration.lineThrough,
+                                        color: AppColors.mutedText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
                             ],
                           ),
                         ),

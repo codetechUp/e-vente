@@ -5,13 +5,23 @@ import '../models/product_model.dart';
 class CartItem {
   final ProductModel product;
   final int quantity;
+  final double effectivePrice;
 
-  const CartItem({required this.product, required this.quantity});
+  const CartItem({
+    required this.product,
+    required this.quantity,
+    required this.effectivePrice,
+  });
 
-  CartItem copyWith({ProductModel? product, int? quantity}) {
+  CartItem copyWith({
+    ProductModel? product,
+    int? quantity,
+    double? effectivePrice,
+  }) {
     return CartItem(
       product: product ?? this.product,
       quantity: quantity ?? this.quantity,
+      effectivePrice: effectivePrice ?? this.effectivePrice,
     );
   }
 }
@@ -21,12 +31,13 @@ class CartProvider extends ChangeNotifier {
 
   List<CartItem> get items => _itemsByProductId.values.toList();
 
-  int get totalItems => _itemsByProductId.values.fold(0, (sum, e) => sum + e.quantity);
+  int get totalItems =>
+      _itemsByProductId.values.fold(0, (sum, e) => sum + e.quantity);
 
   double get totalPrice => _itemsByProductId.values.fold(
-        0,
-        (sum, e) => sum + (e.product.price * e.quantity),
-      );
+    0,
+    (sum, e) => sum + (e.effectivePrice * e.quantity),
+  );
 
   bool contains(ProductModel product) {
     final id = product.id;
@@ -34,15 +45,23 @@ class CartProvider extends ChangeNotifier {
     return _itemsByProductId.containsKey(id);
   }
 
-  void add(ProductModel product, {int quantity = 1}) {
+  void add(ProductModel product, {int quantity = 1, double? effectivePrice}) {
     final id = product.id;
     if (id == null) return;
 
+    final price = effectivePrice ?? product.price;
+
     final existing = _itemsByProductId[id];
     if (existing == null) {
-      _itemsByProductId[id] = CartItem(product: product, quantity: quantity);
+      _itemsByProductId[id] = CartItem(
+        product: product,
+        quantity: quantity,
+        effectivePrice: price,
+      );
     } else {
-      _itemsByProductId[id] = existing.copyWith(quantity: existing.quantity + quantity);
+      _itemsByProductId[id] = existing.copyWith(
+        quantity: existing.quantity + quantity,
+      );
     }
 
     notifyListeners();

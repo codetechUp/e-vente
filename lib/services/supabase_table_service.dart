@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 typedef FromJson<T> = T Function(Map<String, dynamic> json);
@@ -38,6 +39,10 @@ class SupabaseTableService<T> {
         .eq(primaryKey, id)
         .maybeSingle();
 
+    if (kDebugMode) {
+      debugPrint('[SupabaseTableService] getById table=$table id=$id row=$row');
+    }
+
     if (row == null) return null;
     return fromJson((row as Map).cast<String, dynamic>());
   }
@@ -53,14 +58,48 @@ class SupabaseTableService<T> {
   }
 
   Future<T> update(dynamic id, Map<String, dynamic> patch) async {
-    final row = await _client
-        .from(table)
-        .update(patch)
-        .eq(primaryKey, id)
-        .select()
-        .single();
+    if (kDebugMode) {
+      debugPrint(
+        '[SupabaseTableService] update table=$table id=$id patch=$patch',
+      );
+    }
 
-    return fromJson((row as Map).cast<String, dynamic>());
+    try {
+      await _client.from(table).update(patch).eq(primaryKey, id);
+      if (kDebugMode) {
+        debugPrint(
+          '[SupabaseTableService] update executed successfully for $table id=$id',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[SupabaseTableService] update error table=$table id=$id error=$e',
+        );
+      }
+      rethrow;
+    }
+
+    final refreshed = await getById(id);
+    if (refreshed != null) {
+      if (kDebugMode) {
+        debugPrint(
+          '[SupabaseTableService] update reload success for $table id=$id',
+        );
+      }
+      return refreshed;
+    }
+
+    if (kDebugMode) {
+      debugPrint(
+        '[SupabaseTableService] update reload failed for $table id=$id',
+      );
+    }
+    throw PostgrestException(
+      message:
+          'Update completed but the row could not be reloaded from $table with $primaryKey=$id.',
+      code: 'UPDATE_NO_ROW',
+    );
   }
 
   Future<void> delete(dynamic id) async {

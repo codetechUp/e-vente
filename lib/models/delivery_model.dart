@@ -4,6 +4,9 @@ class DeliveryModel {
   final String? deliveryPersonId;
   final String status;
   final DateTime? deliveredAt;
+  final String? deliveryAddress;
+  final double? totalPrice;
+  final List<Map<String, dynamic>>? orderItems;
 
   const DeliveryModel({
     this.id,
@@ -11,9 +14,20 @@ class DeliveryModel {
     this.deliveryPersonId,
     this.status = 'pending',
     this.deliveredAt,
+    this.deliveryAddress,
+    this.totalPrice,
+    this.orderItems,
   });
 
   factory DeliveryModel.fromJson(Map<String, dynamic> json) {
+    final totalPrice = json['total_price'];
+    List<Map<String, dynamic>>? items;
+    if (json['order_items'] != null) {
+      items = (json['order_items'] as List)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
+    }
+
     return DeliveryModel(
       id: json['id'] as int?,
       orderId: json['order_id'] as int?,
@@ -22,6 +36,9 @@ class DeliveryModel {
       deliveredAt: json['delivered_at'] == null
           ? null
           : DateTime.parse(json['delivered_at'] as String),
+      deliveryAddress: json['delivery_address'] as String?,
+      totalPrice: totalPrice == null ? null : (totalPrice as num).toDouble(),
+      orderItems: items,
     );
   }
 

@@ -3,9 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../models/category_model.dart';
 import '../../models/product_model.dart';
+import '../../models/promotion_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/categories_service.dart';
 import '../../services/products_service.dart';
+import '../../services/promotions_service.dart';
 import '../../utils/constants/app_colors.dart';
 import '../../utils/constants/app_sizes.dart';
 import '../cart_view.dart';
@@ -21,6 +23,7 @@ class CatalogTab extends StatefulWidget {
 class _CatalogTabState extends State<CatalogTab> {
   final _categoriesService = CategoriesService();
   final _productsService = ProductsService();
+  final _promotionsService = PromotionsService();
 
   late Future<_CatalogData> _future;
   int? _selectedCategoryId;
@@ -32,9 +35,30 @@ class _CatalogTabState extends State<CatalogTab> {
   }
 
   Future<_CatalogData> _load() async {
-    final categories = await _categoriesService.getAll();
-    final products = await _productsService.getAll();
-    return _CatalogData(categories: categories, products: products);
+    final results = await Future.wait([
+      _categoriesService.getAll(),
+      _productsService.getAll(),
+      _promotionsService.getAll(),
+    ]);
+    final categories = results[0] as List<CategoryModel>;
+    final products = results[1] as List<ProductModel>;
+    final promos = results[2] as List<PromotionModel>;
+
+    final now = DateTime.now();
+    final promoMap = <int, int>{};
+    for (final p in promos) {
+      if (!p.isActive) continue;
+      if (p.endDate != null && p.endDate!.isBefore(now)) continue;
+      if (p.productId != null && p.discountPercent != null) {
+        promoMap[p.productId!] = p.discountPercent!;
+      }
+    }
+
+    return _CatalogData(
+      categories: categories,
+      products: products,
+      promoMap: promoMap,
+    );
   }
 
   Future<void> _reload() async {
@@ -207,10 +231,20 @@ class _CatalogTabState extends State<CatalogTab> {
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
                                 final p = filtered[index];
+                                final discountPct = data.promoMap[p.id];
                                 return _CatalogProductCard(
                                   product: p,
+                                  discountPercent: discountPct,
                                   onAdd: () {
-                                    context.read<CartProvider>().add(p);
+                                    double? effectivePrice;
+                                    if (discountPct != null) {
+                                      effectivePrice =
+                                          p.price * (1 - discountPct / 100);
+                                    }
+                                    context.read<CartProvider>().add(
+                                      p,
+                                      effectivePrice: effectivePrice,
+                                    );
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
                                         content: Text('Ajouté au panier'),
@@ -235,8 +269,13 @@ class _CatalogTabState extends State<CatalogTab> {
 class _CatalogData {
   final List<CategoryModel> categories;
   final List<ProductModel> products;
+  final Map<int, int> promoMap;
 
-  const _CatalogData({required this.categories, required this.products});
+  const _CatalogData({
+    required this.categories,
+    required this.products,
+    required this.promoMap,
+  });
 }
 
 class _SearchBar extends StatelessWidget {
@@ -329,12 +368,22 @@ class _CategoryChip extends StatelessWidget {
 
 class _CatalogProductCard extends StatelessWidget {
   final ProductModel product;
+  final int? discountPercent;
   final VoidCallback onAdd;
 
-  const _CatalogProductCard({required this.product, required this.onAdd});
+  const _CatalogProductCard({
+    required this.product,
+    required this.onAdd,
+    this.discountPercent,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasPromo = discountPercent != null && discountPercent! > 0;
+    final discountedPrice = hasPromo
+        ? product.price * (1 - discountPercent! / 100)
+        : product.price;
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -346,33 +395,60 @@ class _CatalogProductCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(AppSizes.radius),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(AppSizes.radius),
-                child: (product.imageUrl ?? '').trim().isEmpty
-                    ? const Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 40,
-                          color: AppColors.mutedText,
-                        ),
-                      )
-                    : Image.network(
-                        product.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            size: 40,
-                            color: AppColors.mutedText,
+            child: Stack(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(AppSizes.radius),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppSizes.radius),
+                    child: (product.imageUrl ?? '').trim().isEmpty
+                        ? const Center(
+                            child: Icon(
+                              Icons.image_outlined,
+                              size: 40,
+                              color: AppColors.mutedText,
+                            ),
+                          )
+                        : Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                size: 40,
+                                color: AppColors.mutedText,
+                              ),
+                            ),
                           ),
+                  ),
+                ),
+                if (hasPromo)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '-$discountPercent%',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
-              ),
+                    ),
+                  ),
+              ],
             ),
           ),
           const SizedBox(height: 10),
@@ -385,13 +461,30 @@ class _CatalogProductCard extends StatelessWidget {
             ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
           ),
           const SizedBox(height: 6),
-          Text(
-            '${product.price.toStringAsFixed(0)} F',
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: AppColors.accent,
-              fontWeight: FontWeight.w900,
+          if (hasPromo) ...[
+            Text(
+              '${discountedPrice.toStringAsFixed(0)} F',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w900,
+              ),
             ),
-          ),
+            Text(
+              '${product.price.toStringAsFixed(0)} F',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                decoration: TextDecoration.lineThrough,
+                color: AppColors.mutedText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ] else
+            Text(
+              '${product.price.toStringAsFixed(0)} F',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: AppColors.accent,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           const SizedBox(height: 8),
           Row(
             children: [

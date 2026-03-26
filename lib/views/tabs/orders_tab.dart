@@ -3,12 +3,15 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/order_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
+import '../../services/app_users_service.dart';
 import '../../services/orders_service.dart';
 import '../../utils/constants/app_colors.dart';
 import '../../utils/constants/app_sizes.dart';
 import '../cart_view.dart';
 import '../order_details_view.dart';
+import '../order_tracking_view.dart';
 import '../../widgets/badge_icon_button.dart';
 
 class OrdersTab extends StatefulWidget {
@@ -20,6 +23,7 @@ class OrdersTab extends StatefulWidget {
 
 class _OrdersTabState extends State<OrdersTab> {
   final _ordersService = OrdersService();
+  final _usersService = AppUsersService();
 
   late Future<List<OrderModel>> _future;
 
@@ -32,13 +36,40 @@ class _OrdersTabState extends State<OrdersTab> {
   Future<List<OrderModel>> _load() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return const [];
-    return _ordersService.getAllForUser(user.id);
+
+    final auth = context.read<AuthProvider>();
+    if (auth.isAdmin) {
+      return _ordersService.getAll();
+    }
+
+    final appUser = await _usersService.resolveForAuthUser(
+      authUserId: user.id,
+      email: user.email,
+    );
+    if (appUser?.id == null) return const [];
+
+    return _ordersService.getAllForUser(appUser!.id!);
   }
 
   Future<void> _reload() async {
     setState(() {
       _future = _load();
     });
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'delivered':
+        return AppColors.success;
+      case 'shipped':
+        return Colors.blue;
+      case 'processing':
+        return Colors.orange;
+      case 'cancelled':
+        return AppColors.danger;
+      default:
+        return AppColors.mutedText;
+    }
   }
 
   @override
@@ -149,9 +180,12 @@ class _OrdersTabState extends State<OrdersTab> {
                 ...orders.map(
                   (o) => InkWell(
                     onTap: () async {
+                      final auth = context.read<AuthProvider>();
                       final changed = await Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => OrderDetailsView(order: o),
+                          builder: (_) => auth.isAdmin
+                              ? OrderDetailsView(order: o)
+                              : OrderTrackingView(order: o),
                         ),
                       );
                       if (changed == true) {
@@ -179,13 +213,27 @@ class _OrdersTabState extends State<OrdersTab> {
                                       ?.copyWith(fontWeight: FontWeight.w900),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  'Statut: ${o.status}',
-                                  style: Theme.of(context).textTheme.bodyMedium
-                                      ?.copyWith(
-                                        color: AppColors.mutedText,
-                                        fontWeight: FontWeight.w700,
-                                      ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _statusColor(
+                                      o.status,
+                                    ).withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    statusLabel(o.status),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          color: _statusColor(o.status),
+                                        ),
+                                  ),
                                 ),
                               ],
                             ),

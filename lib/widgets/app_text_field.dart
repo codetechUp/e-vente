@@ -32,31 +32,48 @@ class AppTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
+      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+        color: AppColors.text,
+        fontWeight: FontWeight.w600,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: Colors.white,
+        floatingLabelBehavior: FloatingLabelBehavior.never,
+        labelStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: AppColors.mutedText.withValues(alpha: 0.7),
+          fontWeight: FontWeight.w500,
+        ),
+        hintStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: AppColors.mutedText.withValues(alpha: 0.6),
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIconColor: AppColors.mutedText.withValues(alpha: 0.6),
+        suffixIconColor: AppColors.mutedText.withValues(alpha: 0.6),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSizes.padding,
-          vertical: 14,
+          vertical: 18,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radius),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(
+            color: AppColors.border.withValues(alpha: 0.95),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radius),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.3),
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: AppColors.brandGreen, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radius),
+          borderRadius: BorderRadius.circular(18),
           borderSide: const BorderSide(color: AppColors.danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppSizes.radius),
+          borderRadius: BorderRadius.circular(18),
           borderSide: const BorderSide(color: AppColors.danger, width: 1.3),
         ),
       ),

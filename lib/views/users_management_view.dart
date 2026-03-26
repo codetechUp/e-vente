@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user_model.dart';
 import '../models/role_model.dart';
@@ -41,59 +41,16 @@ class _UsersManagementViewState extends State<UsersManagementView> {
     });
   }
 
-  RoleModel? _findRoleByName(List<RoleModel> roles, String name) {
-    for (final r in roles) {
-      if (r.name.toLowerCase().trim() == name.toLowerCase().trim()) {
-        return r;
-      }
-    }
-    return null;
-  }
-
-  Future<void> _showAddUserSheet(List<RoleModel> roles) async {
-    final created = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AddUserSheet(
-        roles: roles,
-        defaultRole:
-            _findRoleByName(roles, 'livreur') ??
-            _findRoleByName(roles, 'boutique') ??
-            _findRoleByName(roles, 'admin'),
-        onCreate: (payload, password) async {
-          final res = await Supabase.instance.client.functions.invoke(
-            'create-user',
-            body: {
-              'name': payload.name,
-              'email': payload.email,
-              'phone': payload.phone,
-              'role_id': payload.roleId,
-              'is_active': payload.isActive,
-              'password': password,
-            },
-          );
-
-          if (res.status != 200) {
-            throw Exception(
-              res.data is Map && (res.data as Map)['error'] != null
-                  ? (res.data as Map)['error']
-                  : 'Erreur création utilisateur',
-            );
-          }
-        },
-      ),
-    );
-
-    if (created == true) {
-      await _reload();
-    }
-  }
-
   Future<void> _showEditUserSheet(
     AppUserModel user,
     List<RoleModel> roles,
   ) async {
+    if (kDebugMode) {
+      debugPrint(
+        '[UsersManagementView] open edit user id=${user.id} email=${user.email} roleId=${user.roleId} active=${user.isActive}',
+      );
+    }
+
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -103,7 +60,15 @@ class _UsersManagementViewState extends State<UsersManagementView> {
         roles: roles,
         onSave: (patch) async {
           if (user.id == null) return;
+          if (kDebugMode) {
+            debugPrint(
+              '[UsersManagementView] saving user id=${user.id} patch=$patch',
+            );
+          }
           await _usersService.updateById(user.id!, patch);
+          if (kDebugMode) {
+            debugPrint('[UsersManagementView] save success user id=${user.id}');
+          }
         },
       ),
     );
@@ -117,9 +82,24 @@ class _UsersManagementViewState extends State<UsersManagementView> {
     if (user.id == null) return;
 
     try {
+      if (kDebugMode) {
+        debugPrint(
+          '[UsersManagementView] toggle active user id=${user.id} email=${user.email} value=$value',
+        );
+      }
       await _usersService.updateById(user.id!, {'is_active': value});
+      if (kDebugMode) {
+        debugPrint(
+          '[UsersManagementView] toggle active success user id=${user.id}',
+        );
+      }
       await _reload();
     } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[UsersManagementView] toggle active error user id=${user.id} error=$e',
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -197,14 +177,33 @@ class _UsersManagementViewState extends State<UsersManagementView> {
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Les utilisateurs créent leur compte depuis l’écran de connexion. Ensuite tu peux modifier leur rôle et leur statut ici.',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: AppColors.mutedText,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
                         ],
                       ),
                     ),
-                    SizedBox(
-                      width: 140,
-                      child: AppButton(
-                        label: 'Ajouter',
-                        onPressed: () => _showAddUserSheet(data.roles),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Text(
+                        'Signup utilisateur',
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.text,
+                        ),
                       ),
                     ),
                   ],
@@ -249,17 +248,12 @@ class _UsersManagementViewState extends State<UsersManagementView> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Ajoute ton premier utilisateur (livreur, boutique, admin).',
+                        'Les utilisateurs doivent d’abord créer leur compte depuis le signup. L’admin pourra ensuite modifier leur rôle et leur statut ici.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.mutedText,
                           fontWeight: FontWeight.w700,
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      AppButton(
-                        label: 'Ajouter',
-                        onPressed: () => _showAddUserSheet(data.roles),
                       ),
                     ],
                   ),
@@ -463,11 +457,26 @@ class _EditUserSheetState extends State<_EditUserSheet> {
         'is_active': _isActive,
       };
 
+      if (kDebugMode) {
+        debugPrint(
+          '[EditUserSheet] submit user id=${widget.user.id} currentEmail=${widget.user.email} patch=$patch',
+        );
+      }
+
       await widget.onSave(patch);
+
+      if (kDebugMode) {
+        debugPrint('[EditUserSheet] submit success user id=${widget.user.id}');
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
     } catch (e) {
+      if (kDebugMode) {
+        debugPrint(
+          '[EditUserSheet] submit error user id=${widget.user.id} error=$e',
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
@@ -602,215 +611,6 @@ class _EditUserSheetState extends State<_EditUserSheet> {
               const SizedBox(height: 16),
               AppButton(
                 label: 'Enregistrer',
-                loading: _loading,
-                onPressed: _loading ? null : _submit,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AddUserSheet extends StatefulWidget {
-  final List<RoleModel> roles;
-  final RoleModel? defaultRole;
-  final Future<void> Function(AppUserModel payload, String password) onCreate;
-
-  const _AddUserSheet({
-    required this.roles,
-    required this.defaultRole,
-    required this.onCreate,
-  });
-
-  @override
-  State<_AddUserSheet> createState() => _AddUserSheetState();
-}
-
-class _AddUserSheetState extends State<_AddUserSheet> {
-  final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _phone = TextEditingController();
-  final _password = TextEditingController();
-
-  RoleModel? _role;
-  bool _loading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _role = widget.defaultRole;
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _phone.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  String? _emailValidator(String? value) {
-    final v = value?.trim() ?? '';
-    if (v.isEmpty) return 'Email obligatoire';
-    if (!v.contains('@')) return 'Email invalide';
-    return null;
-  }
-
-  String? _passwordValidator(String? value) {
-    final v = value ?? '';
-    if (v.isEmpty) return 'Mot de passe obligatoire';
-    if (v.length < 6) return 'Minimum 6 caractères';
-    return null;
-  }
-
-  Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_role?.id == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Choisis un rôle')));
-      return;
-    }
-
-    setState(() => _loading = true);
-
-    try {
-      final payload = AppUserModel(
-        name: _name.text.trim().isEmpty ? null : _name.text.trim(),
-        email: _email.text.trim(),
-        phone: _phone.text.trim().isEmpty ? null : _phone.text.trim(),
-        roleId: _role!.id,
-        isActive: true,
-      );
-
-      await widget.onCreate(payload, _password.text);
-
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.only(
-        left: AppSizes.padding,
-        right: AppSizes.padding,
-        top: 12,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(AppSizes.radiusLg),
-        ),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 56,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Ajouter un utilisateur',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Créer un compte livreur, boutique ou admin.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.mutedText,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                controller: _name,
-                label: 'Nom',
-                hint: 'Ex: Mamadou',
-                prefixIcon: const Icon(Icons.badge_outlined),
-              ),
-              const SizedBox(height: 12),
-              AppTextField(
-                controller: _email,
-                label: 'Email',
-                hint: 'exemple@mail.com',
-                keyboardType: TextInputType.emailAddress,
-                validator: _emailValidator,
-                prefixIcon: const Icon(Icons.email_outlined),
-              ),
-              const SizedBox(height: 12),
-              AppTextField(
-                controller: _phone,
-                label: 'Téléphone',
-                hint: 'Ex: +221 77...',
-                keyboardType: TextInputType.phone,
-                prefixIcon: const Icon(Icons.phone_outlined),
-              ),
-              const SizedBox(height: 12),
-              AppTextField(
-                controller: _password,
-                label: 'Mot de passe',
-                hint: 'Minimum 6 caractères',
-                obscureText: true,
-                validator: _passwordValidator,
-                prefixIcon: const Icon(Icons.lock_outline),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppSizes.radius),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<RoleModel>(
-                    value: _role,
-                    isExpanded: true,
-                    hint: const Text('Choisir un rôle'),
-                    items: widget.roles
-                        .where((r) => r.id != null)
-                        .map(
-                          (r) =>
-                              DropdownMenuItem(value: r, child: Text(r.name)),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _role = value);
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              AppButton(
-                label: 'Ajouter',
                 loading: _loading,
                 onPressed: _loading ? null : _submit,
               ),

@@ -1,19 +1,54 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../models/delivery_model.dart';
 import 'supabase_table_service.dart';
 
 class DeliveriesService {
   final SupabaseTableService<DeliveryModel> _table;
+  final SupabaseClient _client;
 
   DeliveriesService({SupabaseTableService<DeliveryModel>? table})
-      : _table = table ??
-            SupabaseTableService<DeliveryModel>(
-              table: 'deliveries',
-              primaryKey: 'id',
-              fromJson: DeliveryModel.fromJson,
-              toJson: (m) => m.toJson(),
-            );
+    : _table =
+          table ??
+          SupabaseTableService<DeliveryModel>(
+            table: 'deliveries',
+            primaryKey: 'id',
+            fromJson: DeliveryModel.fromJson,
+            toJson: (m) => m.toJson(),
+          ),
+      _client = Supabase.instance.client;
 
-  Future<List<DeliveryModel>> getAll() => _table.getAll(orderBy: 'id');
+  Future<List<DeliveryModel>> getAll() async {
+    final rows = await _client
+        .from('deliveries')
+        .select('''
+          *, 
+          orders!inner(
+            delivery_address, 
+            total_price,
+            order_items(
+              id,
+              quantity,
+              products(name, image_url)
+            )
+          )
+        ''')
+        .order('id');
+
+    return (rows as List).map((row) {
+      final orderData = row['orders'] as Map?;
+      final deliveryAddress = orderData?['delivery_address'] as String?;
+      final totalPrice = orderData?['total_price'];
+      final orderItems = orderData?['order_items'] as List?;
+
+      return DeliveryModel.fromJson({
+        ...row as Map<String, dynamic>,
+        'delivery_address': deliveryAddress,
+        'total_price': totalPrice,
+        'order_items': orderItems,
+      });
+    }).toList();
+  }
 
   Future<DeliveryModel?> getById(int id) => _table.getById(id);
 

@@ -8,6 +8,7 @@ import '../utils/constants/app_sizes.dart';
 import '../utils/constants/app_strings.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
+import '../widgets/auth_brand_logo.dart';
 import '../widgets/auth_footer_link.dart';
 
 class LoginView extends StatefulWidget {
@@ -68,131 +69,109 @@ class _LoginViewState extends State<LoginView> {
     final loading = context.watch<AuthProvider>().loading;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                  AppSizes.padding,
-                  28,
-                  AppSizes.padding,
-                  32,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.primary, AppColors.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSizes.padding,
+            vertical: AppSizes.paddingLg,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 12),
+                const Center(child: AuthBrandLogo(size: 170)),
+                const SizedBox(height: 12),
+                Text(
+                  AppStrings.appName,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: AppColors.mutedText,
+                    fontWeight: FontWeight.w700,
                   ),
-                  borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(AppSizes.radiusLg),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'CONNEXION',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    color: AppColors.text,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppStrings.appName,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Bienvenue',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Connecte-toi pour continuer tes achats.',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppSizes.padding),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSizes.padding),
+                const SizedBox(height: 28),
+                Container(
+                  padding: const EdgeInsets.all(AppSizes.paddingLg),
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                    border: Border.all(color: AppColors.border),
+                    color: AppColors.brandSurface,
+                    borderRadius: BorderRadius.circular(28),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.06),
-                        blurRadius: 18,
-                        offset: const Offset(0, 10),
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
                       ),
                     ],
                   ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Connexion',
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.text,
-                              ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Bienvenue',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.text,
+                          fontWeight: FontWeight.w900,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Accède à ton compte en quelques secondes.',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.mutedText),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Connecte-toi pour continuer tes achats.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.mutedText,
                         ),
-                        const SizedBox(height: 18),
-                        AppTextField(
-                          controller: _emailController,
-                          label: 'Email',
-                          keyboardType: TextInputType.emailAddress,
-                          validator: _emailValidator,
-                          prefixIcon: const Icon(Icons.email_outlined),
-                        ),
-                        const SizedBox(height: 12),
-                        AppTextField(
-                          controller: _passwordController,
-                          label: 'Mot de passe',
-                          obscureText: true,
-                          validator: _passwordValidator,
-                          prefixIcon: const Icon(Icons.lock_outline),
-                        ),
-                        const SizedBox(height: 16),
-                        AppButton(
-                          label: 'Se connecter',
-                          loading: loading,
-                          onPressed: _submit,
-                        ),
-                        const SizedBox(height: 12),
-                        AuthFooterLink(
-                          text: "Pas de compte ? ",
-                          linkText: 'Créer un compte',
-                          onTap: () {
-                            Navigator.of(
-                              context,
-                            ).pushReplacementNamed(AppRoutes.register);
-                          },
-                        ),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(height: 20),
+                      AppTextField(
+                        controller: _emailController,
+                        label: 'E-mail *',
+                        keyboardType: TextInputType.emailAddress,
+                        validator: _emailValidator,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _passwordController,
+                        label: 'Mot de passe *',
+                        obscureText: true,
+                        validator: _passwordValidator,
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: const Icon(Icons.visibility_off_outlined),
+                      ),
+                      const SizedBox(height: 18),
+                      AppButton(
+                        label: 'Connexion',
+                        loading: loading,
+                        onPressed: _submit,
+                      ),
+                      const SizedBox(height: 16),
+
+                      AuthFooterLink(
+                        text: "Pas de compte ? ",
+                        linkText: 'Créer un compte',
+                        onTap: () {
+                          Navigator.of(
+                            context,
+                          ).pushReplacementNamed(AppRoutes.register);
+                        },
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
+              ],
+            ),
           ),
         ),
       ),
