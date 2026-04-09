@@ -5,6 +5,7 @@ class ProductModel {
   final double price;
   final int? categoryId;
   final String? imageUrl;
+  final int stock;
   final DateTime? createdAt;
 
   const ProductModel({
@@ -14,11 +15,13 @@ class ProductModel {
     required this.price,
     this.categoryId,
     this.imageUrl,
+    this.stock = 0,
     this.createdAt,
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final priceValue = json['price'];
+    final stockValue = json['stock'];
 
     return ProductModel(
       id: json['id'] as int?,
@@ -27,6 +30,7 @@ class ProductModel {
       price: priceValue == null ? 0 : (priceValue as num).toDouble(),
       categoryId: json['category_id'] as int?,
       imageUrl: json['image_url'] as String?,
+      stock: stockValue == null ? 0 : (stockValue as num).toInt(),
       createdAt: json['created_at'] == null
           ? null
           : DateTime.parse(json['created_at'] as String),
@@ -41,6 +45,7 @@ class ProductModel {
       'price': price,
       'category_id': categoryId,
       'image_url': imageUrl,
+      'stock': stock,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
   }

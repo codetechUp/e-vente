@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/counter_provider.dart';
 import 'providers/deliveries_provider.dart';
+import 'providers/expenses_provider.dart';
+import 'providers/orders_provider.dart';
 import 'routes/app_router.dart';
 import 'utils/constants/app_colors.dart';
 import 'utils/constants/app_strings.dart';
@@ -17,6 +20,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
+
+  // Initialiser les données de formatage de dates pour le français
+  await initializeDateFormatting('fr_FR', null);
 
   if (SupabaseConfig.url.isEmpty || SupabaseConfig.anonKey.isEmpty) {
     throw StateError(
@@ -36,6 +42,8 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CounterProvider()),
         ChangeNotifierProvider(create: (_) => DeliveriesProvider()),
+        ChangeNotifierProvider(create: (_) => ExpensesProvider()),
+        ChangeNotifierProvider(create: (_) => OrdersProvider()),
       ],
       child: const MyApp(),
     ),

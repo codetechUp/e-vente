@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 import '../models/app_user_model.dart';
 import '../models/delivery_model.dart';
@@ -9,6 +10,7 @@ import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
+import '../widgets/info_row.dart';
 
 const _statusList = [
   'pending',
@@ -35,47 +37,33 @@ String statusLabel(String status) {
   }
 }
 
-class _HeroInfoChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool fullWidth;
+Color statusColor(String status) {
+  switch (status) {
+    case 'delivered':
+      return AppColors.success;
+    case 'shipped':
+      return const Color(0xFF3B82F6);
+    case 'processing':
+      return const Color(0xFFF59E0B);
+    case 'cancelled':
+      return AppColors.danger;
+    default:
+      return AppColors.mutedText;
+  }
+}
 
-  const _HeroInfoChip({
-    required this.label,
-    required this.value,
-    this.fullWidth = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: fullWidth ? double.infinity : null,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: Colors.white.withValues(alpha: 0.84),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ],
-      ),
-    );
+IconData statusIcon(String status) {
+  switch (status) {
+    case 'delivered':
+      return Icons.check_circle;
+    case 'shipped':
+      return Icons.local_shipping;
+    case 'processing':
+      return Icons.hourglass_empty;
+    case 'cancelled':
+      return Icons.cancel;
+    default:
+      return Icons.pending;
   }
 }
 
@@ -257,91 +245,344 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
         ),
         children: [
           Container(
-            padding: const EdgeInsets.all(AppSizes.paddingLg),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1ED9D2), Color(0xFF0FC2DA)],
+              gradient: LinearGradient(
+                colors: [
+                  statusColor(order.status),
+                  statusColor(order.status).withValues(alpha: 0.8),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.06),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+                  color: statusColor(order.status).withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Détails de la commande',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'ID #${order.id ?? '-'}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.88),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
                 Row(
                   children: [
-                    Expanded(
-                      child: _HeroInfoChip(
-                        label: 'Statut',
-                        value: statusLabel(order.status),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        statusIcon(order.status),
+                        color: Colors.white,
+                        size: 32,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 16),
                     Expanded(
-                      child: _HeroInfoChip(
-                        label: 'Montant',
-                        value:
-                            '${(order.totalPrice ?? 0).toStringAsFixed(0)} F',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Commande #${order.id ?? '-'}',
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            order.createdAt != null
+                                ? DateFormat(
+                                    'dd MMM yyyy, HH:mm',
+                                    'fr_FR',
+                                  ).format(order.createdAt!)
+                                : '-',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                _HeroInfoChip(
-                  label: 'Adresse',
-                  value: order.deliveryAddress ?? '-',
-                  fullWidth: true,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Statut',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              statusLabel(order.status),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.white.withValues(alpha: 0.2),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.payments_outlined,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Montant',
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.8,
+                                        ),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${(order.totalPrice ?? 0).toStringAsFixed(0)} F',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on,
+                        color: Colors.white.withValues(alpha: 0.8),
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Adresse de livraison',
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              order.deliveryAddress?.isNotEmpty == true
+                                  ? order.deliveryAddress!
+                                  : 'Non spécifiée',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.all(AppSizes.paddingLg),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: AppColors.brandSurface,
-              borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border, width: 1.5),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Assignation & suivi',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w900,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.person_outline,
+                        color: Color(0xFF3B82F6),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Informations client',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (order.userNom?.isNotEmpty == true) ...[
+                  InfoRow(
+                    icon: Icons.badge_outlined,
+                    label: 'Nom',
+                    value: order.userNom!,
                   ),
+                  const SizedBox(height: 12),
+                ],
+                if (order.userEmail?.isNotEmpty == true) ...[
+                  InfoRow(
+                    icon: Icons.email_outlined,
+                    label: 'Email',
+                    value: order.userEmail!,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (order.userPhone?.isNotEmpty == true) ...[
+                  InfoRow(
+                    icon: Icons.phone_outlined,
+                    label: 'Téléphone',
+                    value: order.userPhone!,
+                  ),
+                  const SizedBox(height: 12),
+                ],
+                if (order.userAdresse?.isNotEmpty == true) ...[
+                  InfoRow(
+                    icon: Icons.home_outlined,
+                    label: 'Adresse',
+                    value: order.userAdresse!,
+                  ),
+                ],
+                if (order.userNom?.isEmpty != false &&
+                    order.userEmail?.isEmpty != false &&
+                    order.userPhone?.isEmpty != false &&
+                    order.userAdresse?.isEmpty != false)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'Aucune information client disponible',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.mutedText,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.brandSurface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.settings,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Gestion de la commande',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 14),
                 InputDecorator(
@@ -415,95 +656,189 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Articles',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
-          FutureBuilder(
-            future: order.id == null
-                ? Future.value(const [])
-                : _itemsService.getAllForOrder(order.id!),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                );
-              }
-
-              if (snapshot.hasError) {
-                return Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text('Erreur: ${snapshot.error}'),
-                );
-              }
-
-              final items = snapshot.data ?? const [];
-              if (items.isEmpty) {
-                return Container(
-                  padding: const EdgeInsets.all(AppSizes.paddingLg),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    'Aucun article',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.mutedText,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                );
-              }
-
-              return Column(
-                children: [
-                  ...items.map(
-                    (i) => Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: AppColors.brandSurface,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppColors.border, width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                        border: Border.all(color: AppColors.border),
+                        color: AppColors.accent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Produit #${i.productId ?? '-'}',
-                              style: Theme.of(context).textTheme.titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                          Text(
-                            'x${i.quantity}',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(width: 10),
-                          Text(
-                            '${((i.price ?? 0) * i.quantity).toStringAsFixed(0)} F',
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.w900,
-                                ),
-                          ),
-                        ],
+                      child: const Icon(
+                        Icons.shopping_bag_outlined,
+                        color: AppColors.accent,
+                        size: 20,
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
+                    const SizedBox(width: 12),
+                    Text(
+                      'Articles commandés',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                FutureBuilder(
+                  future: order.id == null
+                      ? Future.value(const [])
+                      : _itemsService.getAllForOrder(order.id!),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16),
+                          child: CircularProgressIndicator(),
+                        ),
+                      );
+                    }
+
+                    if (snapshot.hasError) {
+                      return Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text('Erreur: ${snapshot.error}'),
+                      );
+                    }
+
+                    final items = snapshot.data ?? const [];
+                    if (items.isEmpty) {
+                      return Container(
+                        padding: const EdgeInsets.all(AppSizes.paddingLg),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(
+                            AppSizes.radiusLg,
+                          ),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Text(
+                          'Aucun article',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: AppColors.mutedText,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      );
+                    }
+
+                    return Column(
+                      children: [
+                        ...items.asMap().entries.map((entry) {
+                          final i = entry.value;
+                          final index = entry.key;
+                          return Container(
+                            margin: EdgeInsets.only(
+                              bottom: index < items.length - 1 ? 12 : 0,
+                            ),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.background,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accent.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: AppColors.accent,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        i.productName?.isNotEmpty == true
+                                            ? i.productName!
+                                            : 'Produit #${i.productId ?? '-'}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleSmall
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${(i.price ?? 0).toStringAsFixed(0)} F × ${i.quantity}',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: AppColors.mutedText,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [
+                                        Color(0xFF55D80F),
+                                        Color(0xFF1FAE3C),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${((i.price ?? 0) * i.quantity).toStringAsFixed(0)} F',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         ],
       ),

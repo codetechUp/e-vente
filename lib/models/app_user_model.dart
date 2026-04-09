@@ -7,6 +7,8 @@ class AppUserModel {
   final int? roleId;
   final bool isActive;
   final DateTime? createdAt;
+  final String? nom;
+  final String? adresse;
 
   const AppUserModel({
     this.id,
@@ -17,6 +19,8 @@ class AppUserModel {
     this.roleId,
     this.isActive = true,
     this.createdAt,
+    this.nom,
+    this.adresse,
   });
 
   factory AppUserModel.fromJson(Map<String, dynamic> json) {
@@ -31,6 +35,8 @@ class AppUserModel {
       createdAt: json['created_at'] == null
           ? null
           : DateTime.parse(json['created_at'] as String),
+      nom: json['nom'] as String?,
+      adresse: json['adresse'] as String?,
     );
   }
 
@@ -44,6 +50,8 @@ class AppUserModel {
       'role_id': roleId,
       'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+      'nom': nom,
+      'adresse': adresse,
     };
   }
 }

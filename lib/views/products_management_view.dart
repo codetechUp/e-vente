@@ -65,7 +65,10 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
     }
   }
 
-  Future<void> _showEdit(ProductModel product, List<CategoryModel> categories) async {
+  Future<void> _showEdit(
+    ProductModel product,
+    List<CategoryModel> categories,
+  ) async {
     final ok = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -102,8 +105,14 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
         title: const Text('Supprimer'),
         content: Text('Supprimer "${product.name}" ?'),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Supprimer')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
+          ),
         ],
       ),
     );
@@ -115,7 +124,9 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
       await _reload();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     }
   }
 
@@ -174,14 +185,14 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
                         children: [
                           Text(
                             'Liste',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w900),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             '${data.products.length} produit(s)',
-                            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(
                                   color: AppColors.mutedText,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -203,7 +214,8 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
               ...data.products.map((p) {
                 final categoryName = p.categoryId == null
                     ? 'Sans catégorie'
-                    : (categoryById[p.categoryId!]?.name ?? 'Catégorie #${p.categoryId}');
+                    : (categoryById[p.categoryId!]?.name ??
+                          'Catégorie #${p.categoryId}');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -225,22 +237,25 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
                   ),
                   child: Column(
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 48, color: AppColors.mutedText),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 48,
+                        color: AppColors.mutedText,
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         'Aucun produit',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w900,
-                            ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Ajoute des produits avec image pour alimenter le catalogue.',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.mutedText,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: AppColors.mutedText,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       AppButton(
@@ -316,25 +331,65 @@ class _ProductTile extends StatelessWidget {
                   product.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   categoryName,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.mutedText,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    color: AppColors.mutedText,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  '${product.price.toStringAsFixed(0)} F',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                Row(
+                  children: [
+                    Text(
+                      '${product.price.toStringAsFixed(0)} F',
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
                         color: AppColors.accent,
                         fontWeight: FontWeight.w900,
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: product.stock > 0
+                            ? AppColors.success.withValues(alpha: 0.1)
+                            : AppColors.danger.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.inventory_2,
+                            size: 14,
+                            color: product.stock > 0
+                                ? AppColors.success
+                                : AppColors.danger,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Stock: ${product.stock}',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: product.stock > 0
+                                      ? AppColors.success
+                                      : AppColors.danger,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -395,7 +450,9 @@ class _ProductSheetState extends State<_ProductSheet> {
   void initState() {
     super.initState();
     _name = TextEditingController(text: widget.initial?.name ?? '');
-    _description = TextEditingController(text: widget.initial?.description ?? '');
+    _description = TextEditingController(
+      text: widget.initial?.description ?? '',
+    );
     _price = TextEditingController(
       text: widget.initial == null ? '' : widget.initial!.price.toString(),
     );
@@ -404,7 +461,9 @@ class _ProductSheetState extends State<_ProductSheet> {
 
     _category = widget.categories.firstWhere(
       (c) => c.id != null && c.id == widget.initial?.categoryId,
-      orElse: () => widget.categories.isEmpty ? const CategoryModel(name: '') : widget.categories.first,
+      orElse: () => widget.categories.isEmpty
+          ? const CategoryModel(name: '')
+          : widget.categories.first,
     );
     if (_category?.id == null) {
       _category = null;
@@ -434,7 +493,10 @@ class _ProductSheetState extends State<_ProductSheet> {
   }
 
   Future<void> _pickImage() async {
-    final file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (file == null) return;
     setState(() {
       _pickedImage = file;
@@ -459,7 +521,9 @@ class _ProductSheetState extends State<_ProductSheet> {
 
       final payload = ProductModel(
         name: _name.text.trim(),
-        description: _description.text.trim().isEmpty ? null : _description.text.trim(),
+        description: _description.text.trim().isEmpty
+            ? null
+            : _description.text.trim(),
         price: price,
         categoryId: _category?.id,
         imageUrl: uploadedUrl,
@@ -471,7 +535,9 @@ class _ProductSheetState extends State<_ProductSheet> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -482,15 +548,15 @@ class _ProductSheetState extends State<_ProductSheet> {
     final preview = _pickedImage != null
         ? Image.file(File(_pickedImage!.path), fit: BoxFit.cover)
         : ((_imageUrl ?? '').trim().isNotEmpty
-            ? Image.network(
-                _imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.broken_image_outlined,
-                  color: AppColors.mutedText,
-                ),
-              )
-            : const Icon(Icons.image_outlined, color: AppColors.mutedText));
+              ? Image.network(
+                  _imageUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.broken_image_outlined,
+                    color: AppColors.mutedText,
+                  ),
+                )
+              : const Icon(Icons.image_outlined, color: AppColors.mutedText));
 
     return Container(
       padding: EdgeInsets.only(
@@ -526,9 +592,9 @@ class _ProductSheetState extends State<_ProductSheet> {
               const SizedBox(height: 12),
               Text(
                 widget.title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 14),
               InkWell(
@@ -550,7 +616,10 @@ class _ProductSheetState extends State<_ProductSheet> {
                           right: 10,
                           top: 10,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surface.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(999),
@@ -559,13 +628,15 @@ class _ProductSheetState extends State<_ProductSheet> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.photo_library_outlined, size: 18),
+                                const Icon(
+                                  Icons.photo_library_outlined,
+                                  size: 18,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Choisir',
-                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                        fontWeight: FontWeight.w900,
-                                      ),
+                                  style: Theme.of(context).textTheme.labelMedium
+                                      ?.copyWith(fontWeight: FontWeight.w900),
                                 ),
                               ],
                             ),
@@ -616,10 +687,8 @@ class _ProductSheetState extends State<_ProductSheet> {
                     items: widget.categories
                         .where((c) => c.id != null)
                         .map(
-                          (c) => DropdownMenuItem(
-                            value: c,
-                            child: Text(c.name),
-                          ),
+                          (c) =>
+                              DropdownMenuItem(value: c, child: Text(c.name)),
                         )
                         .toList(),
                     onChanged: (value) => setState(() => _category = value),

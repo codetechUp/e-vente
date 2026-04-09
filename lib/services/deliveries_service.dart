@@ -26,6 +26,8 @@ class DeliveriesService {
           orders!inner(
             delivery_address, 
             total_price,
+            user_id,
+            users(name, phone, email),
             order_items(
               id,
               quantity,
@@ -40,12 +42,16 @@ class DeliveriesService {
       final deliveryAddress = orderData?['delivery_address'] as String?;
       final totalPrice = orderData?['total_price'];
       final orderItems = orderData?['order_items'] as List?;
+      final userData = orderData?['users'] as Map?;
 
       return DeliveryModel.fromJson({
         ...row as Map<String, dynamic>,
         'delivery_address': deliveryAddress,
         'total_price': totalPrice,
         'order_items': orderItems,
+        'customer_name': userData?['name'] as String?,
+        'customer_phone': userData?['phone'] as String?,
+        'customer_email': userData?['email'] as String?,
       });
     }).toList();
   }

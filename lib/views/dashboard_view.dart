@@ -23,15 +23,23 @@ class _DashboardViewState extends State<DashboardView> {
   Future<_DashboardData> _load() async {
     final client = Supabase.instance.client;
 
-    final ordersRows = await client.from('orders').select('id, status, total_price');
+    final ordersRows = await client
+        .from('orders')
+        .select('id, status, total_price');
     final orders = (ordersRows as List).cast<Map<String, dynamic>>();
 
     final totalOrders = orders.length;
     final pendingOrders = orders.where((o) => o['status'] == 'pending').length;
-    final processingOrders = orders.where((o) => o['status'] == 'processing').length;
+    final processingOrders = orders
+        .where((o) => o['status'] == 'processing')
+        .length;
     final shippedOrders = orders.where((o) => o['status'] == 'shipped').length;
-    final deliveredOrders = orders.where((o) => o['status'] == 'delivered').length;
-    final cancelledOrders = orders.where((o) => o['status'] == 'cancelled').length;
+    final deliveredOrders = orders
+        .where((o) => o['status'] == 'delivered')
+        .length;
+    final cancelledOrders = orders
+        .where((o) => o['status'] == 'cancelled')
+        .length;
 
     double revenue = 0;
     for (final o in orders) {
@@ -87,10 +95,12 @@ class _DashboardViewState extends State<DashboardView> {
     }
 
     final topProducts = top5
-        .map((e) => _TopProduct(
-              name: topProductNames[e.key] ?? 'Produit #${e.key}',
-              quantity: e.value,
-            ))
+        .map(
+          (e) => _TopProduct(
+            name: topProductNames[e.key] ?? 'Produit #${e.key}',
+            quantity: e.value,
+          ),
+        )
         .toList();
 
     return _DashboardData(
@@ -117,10 +127,9 @@ class _DashboardViewState extends State<DashboardView> {
       appBar: AppBar(
         title: Text(
           'Tableau de bord',
-          style: Theme.of(context)
-              .textTheme
-              .titleLarge
-              ?.copyWith(fontWeight: FontWeight.w900),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
         ),
         backgroundColor: AppColors.background,
         elevation: 0,
@@ -152,169 +161,356 @@ class _DashboardViewState extends State<DashboardView> {
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(
-              AppSizes.padding, 10, AppSizes.padding, 40,
+              AppSizes.padding,
+              10,
+              AppSizes.padding,
+              40,
             ),
             children: [
-              _buildStatRow(context, [
-                _StatCard(
-                  title: 'Total commandes',
-                  value: '${data.totalOrders}',
-                  icon: Icons.shopping_bag_outlined,
-                  color: AppColors.accent,
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
                 ),
-                _StatCard(
-                  title: 'Clients',
-                  value: '${data.totalClients}',
-                  icon: Icons.people_outline,
-                  color: Colors.blue,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(
+                        Icons.dashboard_outlined,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                    ),
+                    const SizedBox(width: 20),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tableau de bord',
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Vue d\'ensemble de votre activité',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ]),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _ModernStatCard(
+                      title: 'Commandes',
+                      value: '${data.totalOrders}',
+                      icon: Icons.shopping_bag_outlined,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _ModernStatCard(
+                      title: 'Clients',
+                      value: '${data.totalClients}',
+                      icon: Icons.people_outline,
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Statut des commandes',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 12),
-              _buildStatRow(context, [
-                _StatCard(
-                  title: 'En attente',
-                  value: '${data.pendingOrders}',
-                  icon: Icons.hourglass_empty,
-                  color: AppColors.mutedText,
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.border, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                _StatCard(
-                  title: 'En cours',
-                  value: '${data.processingOrders}',
-                  icon: Icons.autorenew,
-                  color: Colors.orange,
+                child: Column(
+                  children: [
+                    _StatusRow(
+                      label: 'En attente',
+                      value: data.pendingOrders,
+                      total: data.totalOrders,
+                      icon: Icons.pending_outlined,
+                      color: AppColors.mutedText,
+                    ),
+                    const SizedBox(height: 16),
+                    _StatusRow(
+                      label: 'En cours',
+                      value: data.processingOrders,
+                      total: data.totalOrders,
+                      icon: Icons.autorenew,
+                      color: const Color(0xFFF59E0B),
+                    ),
+                    const SizedBox(height: 16),
+                    _StatusRow(
+                      label: 'Expédiées',
+                      value: data.shippedOrders,
+                      total: data.totalOrders,
+                      icon: Icons.local_shipping_outlined,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                    const SizedBox(height: 16),
+                    _StatusRow(
+                      label: 'Livrées',
+                      value: data.deliveredOrders,
+                      total: data.totalOrders,
+                      icon: Icons.check_circle_outline,
+                      color: AppColors.success,
+                    ),
+                  ],
                 ),
-              ]),
-              const SizedBox(height: 12),
-              _buildStatRow(context, [
-                _StatCard(
-                  title: 'Expédiées',
-                  value: '${data.shippedOrders}',
-                  icon: Icons.local_shipping_outlined,
-                  color: Colors.blue,
-                ),
-                _StatCard(
-                  title: 'Livrées',
-                  value: '${data.deliveredOrders}',
-                  icon: Icons.check_circle_outline,
-                  color: AppColors.success,
-                ),
-              ]),
+              ),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(AppSizes.paddingLg),
                 decoration: BoxDecoration(
-                  color: AppColors.accent,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF55D80F).withValues(alpha: 0.3),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Chiffre d\'affaires',
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: Colors.black.withValues(alpha: 0.7),
-                            fontWeight: FontWeight.w900,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${data.revenue.toStringAsFixed(0)} F',
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                color: Colors.black,
+                          child: const Icon(
+                            Icons.attach_money,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Chiffre d\'affaires',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: Colors.white,
                                 fontWeight: FontWeight.w900,
                               ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '${data.revenue.toStringAsFixed(0)} F',
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                          ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               Text(
-                'Produits les plus vendus',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w900),
+                'Top produits',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               if (data.topProducts.isEmpty)
                 Container(
-                  padding: const EdgeInsets.all(AppSizes.paddingLg),
+                  padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                    borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: AppColors.border),
                   ),
-                  child: Text(
-                    'Aucune vente enregistrée.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.mutedText,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 64,
+                        color: AppColors.mutedText,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Aucune vente enregistrée',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w900),
+                      ),
+                    ],
                   ),
                 )
               else
-                ...data.topProducts.asMap().entries.map(
-                  (entry) {
-                    final i = entry.key;
-                    final p = entry.value;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius:
-                            BorderRadius.circular(AppSizes.radiusLg),
-                        border: Border.all(color: AppColors.border),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: AppColors.accent
-                                  .withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(10),
+                    ],
+                  ),
+                  child: Column(
+                    children: data.topProducts.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final p = entry.value;
+                      final colors = [
+                        [const Color(0xFFFFD700), const Color(0xFFFFA500)],
+                        [const Color(0xFFC0C0C0), const Color(0xFF808080)],
+                        [const Color(0xFFCD7F32), const Color(0xFF8B4513)],
+                        [const Color(0xFF55D80F), const Color(0xFF1FAE3C)],
+                        [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
+                      ];
+                      return Container(
+                        margin: EdgeInsets.only(
+                          bottom: i < data.topProducts.length - 1 ? 16 : 0,
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: colors[i % colors.length],
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colors[i % colors.length][0]
+                                        .withValues(alpha: 0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '${i + 1}',
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                      ),
+                                ),
+                              ),
                             ),
-                            child: Center(
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w900),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${p.quantity} unités vendues',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(
+                                          color: AppColors.mutedText,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors[i % colors.length][0].withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                               child: Text(
-                                '${i + 1}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleSmall
+                                '${p.quantity}',
+                                style: Theme.of(context).textTheme.titleMedium
                                     ?.copyWith(
                                       fontWeight: FontWeight.w900,
+                                      color: colors[i % colors.length][0],
                                     ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              p.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleSmall
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                          ),
-                          Text(
-                            '${p.quantity} vendus',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelMedium
-                                ?.copyWith(
-                                  color: AppColors.mutedText,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
             ],
           );
@@ -322,69 +518,149 @@ class _DashboardViewState extends State<DashboardView> {
       ),
     );
   }
+}
 
-  Widget _buildStatRow(BuildContext context, List<_StatCard> cards) {
-    return Row(
-      children: cards
-          .map((c) => Expanded(child: c))
-          .expand((w) => [w, const SizedBox(width: 12)])
-          .toList()
-        ..removeLast(),
+class _ModernStatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final IconData icon;
+  final Gradient gradient;
+
+  const _ModernStatCard({
+    required this.title,
+    required this.value,
+    required this.icon,
+    required this.gradient,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
+class _StatusRow extends StatelessWidget {
+  final String label;
+  final int value;
+  final int total;
   final IconData icon;
   final Color color;
 
-  const _StatCard({
-    required this.title,
+  const _StatusRow({
+    required this.label,
     required this.value,
+    required this.total,
     required this.icon,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSizes.padding),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+    final percentage = total > 0 ? (value / total * 100).toInt() : 0;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 20),
             ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$percentage% du total',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppColors.mutedText,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                value.toString(),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w900,
+                  color: color,
                 ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: LinearProgressIndicator(
+            value: total > 0 ? value / total : 0,
+            backgroundColor: AppColors.border,
+            valueColor: AlwaysStoppedAnimation<Color>(color),
+            minHeight: 6,
           ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.mutedText,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/orders_provider.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
@@ -59,7 +60,8 @@ class _AdminShellViewState extends State<AdminShellView> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      user?.userMetadata?['name'] as String? ?? 'Administrateur',
+                      user?.userMetadata?['name'] as String? ??
+                          'Administrateur',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.w900,
                       ),
@@ -115,30 +117,43 @@ class _AdminShellViewState extends State<AdminShellView> {
           ),
         ),
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _pages),
       bottomNavigationBar: StyledBottomNav(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
+            icon: _buildOrdersIcon(context, false),
+            activeIcon: _buildOrdersIcon(context, true),
             label: 'Commandes',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             activeIcon: Icon(Icons.settings),
             label: 'Gestion',
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOrdersIcon(BuildContext context, bool isActive) {
+    final pendingCount = context.watch<OrdersProvider>().pendingOrdersCount;
+
+    return Badge(
+      label: Text(
+        pendingCount.toString(),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+      ),
+      isLabelVisible: pendingCount > 0,
+      backgroundColor: AppColors.danger,
+      child: Icon(
+        isActive ? Icons.local_shipping : Icons.local_shipping_outlined,
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/orders_provider.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
@@ -54,75 +55,78 @@ class _MainShellViewState extends State<MainShellView> {
     }
   }
 
-  List<BottomNavigationBarItem> _buildNavItems(UserRole? role) {
+  List<BottomNavigationBarItem> _buildNavItems(
+    UserRole? role,
+    BuildContext context,
+  ) {
     switch (role) {
       case UserRole.admin:
-        return const [
-          BottomNavigationBarItem(
+        return [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
             label: 'Découvrir',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.list_alt_outlined),
             activeIcon: Icon(Icons.list_alt),
             label: 'Catalogue',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
+            icon: _buildOrdersIcon(context),
+            activeIcon: _buildOrdersIcon(context),
             label: 'Commandes',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.storefront_outlined),
             activeIcon: Icon(Icons.storefront),
             label: 'Gestion',
           ),
         ];
       case UserRole.livreur:
-        return const [
-          BottomNavigationBarItem(
+        return [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
             label: 'Découvrir',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.list_alt_outlined),
             activeIcon: Icon(Icons.list_alt),
             label: 'Catalogue',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.delivery_dining_outlined),
-            activeIcon: Icon(Icons.delivery_dining),
+            icon: _buildOrdersIcon(context),
+            activeIcon: _buildOrdersIcon(context),
             label: 'Livraisons',
           ),
         ];
       case UserRole.client:
       default:
-        return const [
-          BottomNavigationBarItem(
+        return [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),
             activeIcon: Icon(Icons.explore),
             label: 'Découvrir',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.list_alt_outlined),
             activeIcon: Icon(Icons.list_alt),
             label: 'Catalogue',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_shipping_outlined),
-            activeIcon: Icon(Icons.local_shipping),
+            icon: _buildOrdersIcon(context),
+            activeIcon: _buildOrdersIcon(context),
             label: 'Commandes',
           ),
         ];
@@ -157,7 +161,7 @@ class _MainShellViewState extends State<MainShellView> {
     }
 
     final tabs = _buildTabs(role);
-    final navItems = _buildNavItems(role);
+    final navItems = _buildNavItems(role, context);
 
     if (kDebugMode) {
       final navLabels = navItems.map((item) => item.label).join(', ');
@@ -273,6 +277,23 @@ class _MainShellViewState extends State<MainShellView> {
         onTap: (i) => setState(() => _index = i),
         items: navItems,
       ),
+    );
+  }
+
+  Widget _buildOrdersIcon(BuildContext context) {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final pendingCount = context
+        .watch<OrdersProvider>()
+        .getPendingOrdersCountForClient(userId);
+
+    return Badge(
+      label: Text(
+        pendingCount.toString(),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+      ),
+      isLabelVisible: pendingCount > 0,
+      backgroundColor: AppColors.danger,
+      child: const Icon(Icons.local_shipping_outlined),
     );
   }
 }

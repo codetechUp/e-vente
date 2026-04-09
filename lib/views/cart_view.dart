@@ -7,6 +7,7 @@ import '../models/app_user_model.dart';
 import '../models/order_item_model.dart';
 import '../models/order_model.dart';
 import '../providers/cart_provider.dart';
+import '../providers/orders_provider.dart';
 import '../services/app_users_service.dart';
 import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
@@ -145,6 +146,10 @@ class _CartViewState extends State<CartView> {
       cart.clear();
 
       if (!mounted) return;
+
+      // Mettre à jour la liste des commandes via le provider
+      context.read<OrdersProvider>().loadOrders();
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Commande créée avec succès.')),
       );

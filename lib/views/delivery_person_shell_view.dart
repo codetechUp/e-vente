@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/auth_provider.dart';
+import '../providers/deliveries_provider.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
@@ -120,24 +121,40 @@ class _DeliveryPersonShellViewState extends State<DeliveryPersonShellView> {
       bottomNavigationBar: StyledBottomNav(
         currentIndex: _currentIndex,
         onTap: (i) => setState(() => _currentIndex = i),
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.inbox_outlined),
-            activeIcon: Icon(Icons.inbox),
+            icon: _buildRequestsIcon(context),
+            activeIcon: _buildRequestsIcon(context),
             label: 'Demandes',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.local_shipping_outlined),
             activeIcon: Icon(Icons.local_shipping),
             label: 'Livraisons',
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRequestsIcon(BuildContext context) {
+    final pendingCount = context
+        .watch<DeliveriesProvider>()
+        .pendingRequestsCount;
+
+    return Badge(
+      label: Text(
+        pendingCount.toString(),
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900),
+      ),
+      isLabelVisible: pendingCount > 0,
+      backgroundColor: AppColors.danger,
+      child: const Icon(Icons.inbox_outlined),
     );
   }
 }

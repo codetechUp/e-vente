@@ -5,7 +5,7 @@ import '../../utils/constants/app_sizes.dart';
 import '../categories_management_view.dart';
 import '../products_management_view.dart';
 import '../promotions_management_view.dart';
-import '../stocks_management_view.dart';
+import '../stock_entries_history_view.dart';
 import '../users_management_view.dart';
 
 class ManagementTab extends StatelessWidget {
@@ -125,14 +125,14 @@ class ManagementTab extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               _MenuCard(
-                title: 'Stocks',
-                subtitle: 'Gérer les quantités en stock',
-                icon: Icons.warehouse_outlined,
-                color: const Color(0xFF8B5CF6),
+                title: 'Entrées de stock',
+                subtitle: 'Enregistrer les approvisionnements',
+                icon: Icons.add_box_outlined,
+                color: const Color(0xFF55D80F),
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const StocksManagementView(),
+                      builder: (_) => StockEntriesHistoryView(),
                     ),
                   );
                 },

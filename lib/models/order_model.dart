@@ -6,6 +6,13 @@ class OrderModel {
   final String? deliveryAddress;
   final DateTime? createdAt;
 
+  // Informations utilisateur jointes
+  final String? userName;
+  final String? userEmail;
+  final String? userPhone;
+  final String? userNom;
+  final String? userAdresse;
+
   const OrderModel({
     this.id,
     this.userId,
@@ -13,10 +20,16 @@ class OrderModel {
     this.totalPrice,
     this.deliveryAddress,
     this.createdAt,
+    this.userName,
+    this.userEmail,
+    this.userPhone,
+    this.userNom,
+    this.userAdresse,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final total = json['total_price'];
+    final user = json['users'] as Map<String, dynamic>?;
 
     return OrderModel(
       id: json['id'] as int?,
@@ -27,6 +40,11 @@ class OrderModel {
       createdAt: json['created_at'] == null
           ? null
           : DateTime.parse(json['created_at'] as String),
+      userName: user?['name'] as String?,
+      userEmail: user?['email'] as String?,
+      userPhone: user?['phone'] as String?,
+      userNom: user?['nom'] as String?,
+      userAdresse: user?['adresse'] as String?,
     );
   }
 

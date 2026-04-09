@@ -20,6 +20,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   final _name = TextEditingController();
   final _phone = TextEditingController();
+  final _adresse = TextEditingController();
 
   bool _loading = false;
   bool _initLoading = true;
@@ -40,6 +41,7 @@ class _ProfileViewState extends State<ProfileView> {
   void dispose() {
     _name.dispose();
     _phone.dispose();
+    _adresse.dispose();
     super.dispose();
   }
 
@@ -55,10 +57,19 @@ class _ProfileViewState extends State<ProfileView> {
         throw StateError('Utilisateur non connecté');
       }
 
-      final userRow = await _usersService.getById(id);
+      final userRow = await _usersService.resolveForAuthUser(
+        authUserId: id,
+        email: _authEmail,
+      );
+
+      if (userRow == null) {
+        throw StateError('Profil introuvable dans la table users');
+      }
+
       _profile = userRow;
-      _name.text = userRow?.name ?? '';
-      _phone.text = userRow?.phone ?? '';
+      _name.text = (userRow.name ?? userRow.nom ?? '').trim();
+      _phone.text = (userRow.phone ?? '').trim();
+      _adresse.text = (userRow.adresse ?? '').trim();
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -71,8 +82,13 @@ class _ProfileViewState extends State<ProfileView> {
   }
 
   Future<void> _save() async {
-    final id = _authUserId;
-    if (id.isEmpty) return;
+    final profileId = _profile?.id;
+    if (profileId == null || profileId.isEmpty) {
+      setState(() {
+        _error = 'Impossible de retrouver le profil utilisateur';
+      });
+      return;
+    }
 
     setState(() {
       _loading = true;
@@ -80,15 +96,19 @@ class _ProfileViewState extends State<ProfileView> {
     });
 
     try {
-      await _usersService.updateById(id, {
+      final cleanedName = _name.text.trim();
+
+      await _usersService.updateById(profileId, {
         'name': _name.text.trim().isEmpty ? null : _name.text.trim(),
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
+        'adresse': _adresse.text.trim().isEmpty ? null : _adresse.text.trim(),
+        'nom': cleanedName.isEmpty ? null : cleanedName,
       });
       await _load();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profil mis à jour')),
+        const SnackBar(content: Text('Profil mis à jour avec succès')),
       );
     } catch (e) {
       setState(() {
@@ -106,137 +126,185 @@ class _ProfileViewState extends State<ProfileView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Mon Profil'),
+        title: Text(
+          'Mon Profil',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+        ),
+        backgroundColor: AppColors.background,
+        elevation: 0,
         actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            onPressed: _load,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Rafraîchir',
+          ),
         ],
       ),
       body: _initLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
+          : SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(
                 AppSizes.padding,
                 12,
                 AppSizes.padding,
                 24,
               ),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSizes.padding),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 52,
-                        height: 52,
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Icon(
-                          Icons.account_circle,
-                          color: AppColors.text,
-                          size: 30,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _profile?.name?.trim().isNotEmpty == true
-                                  ? _profile!.name!
-                                  : 'Utilisateur',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w900),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _authEmail,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .labelMedium
-                                  ?.copyWith(
-                                    color: AppColors.mutedText,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (_error != null)
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   Container(
-                    padding: const EdgeInsets.all(AppSizes.padding),
+                    padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AppColors.danger.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                      border: Border.all(
-                        color: AppColors.danger.withValues(alpha: 0.25),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1ED9D2), Color(0xFF0FC2DA)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF1ED9D2).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      _error!,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.danger,
-                            fontWeight: FontWeight.w700,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20),
                           ),
+                          child: const Icon(
+                            Icons.account_circle,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _profile?.name?.trim().isNotEmpty == true
+                                    ? _profile!.name!
+                                    : (_profile?.nom?.trim().isNotEmpty == true
+                                          ? _profile!.nom!
+                                          : 'Utilisateur'),
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _authEmail,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                const SizedBox(height: 14),
-                Container(
-                  padding: const EdgeInsets.all(AppSizes.padding),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                    border: Border.all(color: AppColors.border),
+                  const SizedBox(height: 14),
+                  if (_error != null)
+                    Container(
+                      padding: const EdgeInsets.all(AppSizes.padding),
+                      decoration: BoxDecoration(
+                        color: AppColors.danger.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                        border: Border.all(
+                          color: AppColors.danger.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.danger,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(AppSizes.paddingLg),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandSurface,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 24,
+                          offset: const Offset(0, 12),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Informations personnelles',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.text,
+                              ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Modifie tes informations de profil',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: AppColors.mutedText),
+                        ),
+                        const SizedBox(height: 20),
+                        AppTextField(
+                          controller: _name,
+                          label: 'Nom',
+                          hint: 'Ton nom',
+                          prefixIcon: const Icon(Icons.person_outline),
+                        ),
+                        const SizedBox(height: 14),
+                        AppTextField(
+                          controller: _phone,
+                          label: 'Numéro',
+                          hint: 'Ex: +221 77 123 45 67',
+                          keyboardType: TextInputType.phone,
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                        ),
+                        const SizedBox(height: 14),
+                        AppTextField(
+                          controller: _adresse,
+                          label: 'Adresse de livraison',
+                          hint: 'Adresse complète',
+                          prefixIcon: const Icon(Icons.location_on_outlined),
+                        ),
+                        const SizedBox(height: 20),
+                        AppButton(
+                          label: 'Enregistrer les modifications',
+                          loading: _loading,
+                          onPressed: _loading ? null : _save,
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Informations',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        controller: _name,
-                        label: 'Nom',
-                        hint: 'Ton nom',
-                        prefixIcon: const Icon(Icons.badge_outlined),
-                      ),
-                      const SizedBox(height: 12),
-                      AppTextField(
-                        controller: _phone,
-                        label: 'Téléphone',
-                        hint: 'Ex: +221 77...',
-                        keyboardType: TextInputType.phone,
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                      ),
-                      const SizedBox(height: 16),
-                      AppButton(
-                        label: 'Enregistrer',
-                        loading: _loading,
-                        onPressed: _loading ? null : _save,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
     );
   }

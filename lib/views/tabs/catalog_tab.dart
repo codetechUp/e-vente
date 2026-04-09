@@ -24,14 +24,22 @@ class _CatalogTabState extends State<CatalogTab> {
   final _categoriesService = CategoriesService();
   final _productsService = ProductsService();
   final _promotionsService = PromotionsService();
+  final _searchController = TextEditingController();
 
   late Future<_CatalogData> _future;
   int? _selectedCategoryId;
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<_CatalogData> _load() async {
@@ -81,7 +89,16 @@ class _CatalogTabState extends State<CatalogTab> {
             ),
             child: Row(
               children: [
-                const Expanded(child: _SearchBar()),
+                Expanded(
+                  child: _SearchBar(
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                      });
+                    },
+                  ),
+                ),
                 const SizedBox(width: 10),
                 IconButton(
                   onPressed: _reload,
@@ -122,11 +139,17 @@ class _CatalogTabState extends State<CatalogTab> {
                 final data = snapshot.data;
                 if (data == null) return const SizedBox.shrink();
 
-                final filtered = _selectedCategoryId == null
+                var filtered = _selectedCategoryId == null
                     ? data.products
                     : data.products
                           .where((p) => p.categoryId == _selectedCategoryId)
                           .toList();
+
+                if (_searchQuery.isNotEmpty) {
+                  filtered = filtered
+                      .where((p) => p.name.toLowerCase().contains(_searchQuery))
+                      .toList();
+                }
 
                 return Row(
                   children: [
@@ -279,7 +302,10 @@ class _CatalogData {
 }
 
 class _SearchBar extends StatelessWidget {
-  const _SearchBar();
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  const _SearchBar({required this.controller, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -293,18 +319,38 @@ class _SearchBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.search, color: AppColors.mutedText),
+          const Icon(Icons.search, color: AppColors.mutedText, size: 20),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              'Rechercher un produit',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.mutedText,
-                fontWeight: FontWeight.w700,
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un produit',
+                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.mutedText,
+                  fontWeight: FontWeight.w700,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
               ),
             ),
           ),
-          const Icon(Icons.qr_code_scanner, color: AppColors.mutedText),
+          if (controller.text.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear, size: 18),
+              color: AppColors.mutedText,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                controller.clear();
+                onChanged('');
+              },
+            ),
         ],
       ),
     );
@@ -385,11 +431,17 @@ class _CatalogProductCard extends StatelessWidget {
         : product.price;
 
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,17 +450,18 @@ class _CatalogProductCard extends StatelessWidget {
             child: Stack(
               children: [
                 Container(
+                  margin: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: AppColors.background,
-                    borderRadius: BorderRadius.circular(AppSizes.radius),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppSizes.radius),
+                    borderRadius: BorderRadius.circular(16),
                     child: (product.imageUrl ?? '').trim().isEmpty
                         ? const Center(
                             child: Icon(
                               Icons.image_outlined,
-                              size: 40,
+                              size: 48,
                               color: AppColors.mutedText,
                             ),
                           )
@@ -416,10 +469,11 @@ class _CatalogProductCard extends StatelessWidget {
                             product.imageUrl!,
                             fit: BoxFit.cover,
                             width: double.infinity,
+                            height: double.infinity,
                             errorBuilder: (_, __, ___) => const Center(
                               child: Icon(
                                 Icons.broken_image_outlined,
-                                size: 40,
+                                size: 48,
                                 color: AppColors.mutedText,
                               ),
                             ),
@@ -428,88 +482,125 @@ class _CatalogProductCard extends StatelessWidget {
                 ),
                 if (hasPromo)
                   Positioned(
-                    top: 6,
-                    left: 6,
+                    top: 14,
+                    left: 14,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.danger,
-                        borderRadius: BorderRadius.circular(999),
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF3B30), Color(0xFFFF6B6B)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(
+                              0xFFFF3B30,
+                            ).withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Text(
                         '-$discountPercent%',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
+                          fontSize: 11,
                         ),
                       ),
                     ),
                   ),
+                Positioned(
+                  bottom: 14,
+                  right: 14,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onAdd,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF55D80F,
+                              ).withValues(alpha: 0.4),
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 22,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 10),
-          Text(
-            product.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(
-              context,
-            ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 6),
-          if (hasPromo) ...[
-            Text(
-              '${discountedPrice.toStringAsFixed(0)} F',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            Text(
-              '${product.price.toStringAsFixed(0)} F',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                decoration: TextDecoration.lineThrough,
-                color: AppColors.mutedText,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ] else
-            Text(
-              '${product.price.toStringAsFixed(0)} F',
-              style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                '+1 pts',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppColors.mutedText,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              const Spacer(),
-              InkWell(
-                onTap: onAdd,
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(999),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
                   ),
-                  child: const Icon(Icons.add, color: Colors.black),
                 ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (hasPromo) ...[
+                      Text(
+                        '${discountedPrice.toStringAsFixed(0)} F',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${product.price.toStringAsFixed(0)} F',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          decoration: TextDecoration.lineThrough,
+                          color: AppColors.mutedText,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ] else
+                      Text(
+                        '${product.price.toStringAsFixed(0)} F',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),

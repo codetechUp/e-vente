@@ -17,12 +17,22 @@ class OrdersService {
           ),
       _client = Supabase.instance.client;
 
-  Future<List<OrderModel>> getAll() => _table.getAll(orderBy: 'created_at');
+  Future<List<OrderModel>> getAll() async {
+    final rows = await _client
+        .from('orders')
+        .select('*, users(name, email, phone, nom, adresse)')
+        .order('created_at', ascending: false);
+
+    return (rows as List)
+        .cast<Map<String, dynamic>>()
+        .map((e) => OrderModel.fromJson(e))
+        .toList();
+  }
 
   Future<List<OrderModel>> getAllForUser(String userId) async {
     final rows = await _client
         .from('orders')
-        .select()
+        .select('*, users(name, email, phone, nom, adresse)')
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 

@@ -17,8 +17,8 @@ class DeliveriesProvider extends ChangeNotifier {
   DeliveriesProvider({
     DeliveriesService? deliveriesService,
     AppUsersService? usersService,
-  })  : _deliveriesService = deliveriesService ?? DeliveriesService(),
-        _usersService = usersService ?? AppUsersService() {
+  }) : _deliveriesService = deliveriesService ?? DeliveriesService(),
+       _usersService = usersService ?? AppUsersService() {
     _init();
   }
 
@@ -36,18 +36,26 @@ class DeliveriesProvider extends ChangeNotifier {
   List<DeliveryModel> get pendingRequests {
     if (_currentDeliveryPersonId == null) return [];
     return _deliveries
-        .where((d) =>
-            d.deliveryPersonId == _currentDeliveryPersonId &&
-            (d.status == 'pending' || d.status == 'processing'))
+        .where(
+          (d) =>
+              d.deliveryPersonId == _currentDeliveryPersonId &&
+              (d.status == 'pending' || d.status == 'processing'),
+        )
         .toList();
+  }
+
+  int get pendingRequestsCount {
+    return pendingRequests.length;
   }
 
   List<DeliveryModel> get activeDeliveries {
     if (_currentDeliveryPersonId == null) return [];
     return _deliveries
-        .where((d) =>
-            d.deliveryPersonId == _currentDeliveryPersonId &&
-            d.status == 'shipped')
+        .where(
+          (d) =>
+              d.deliveryPersonId == _currentDeliveryPersonId &&
+              d.status == 'shipped',
+        )
         .toList();
   }
 
