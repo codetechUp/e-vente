@@ -5,6 +5,9 @@ class OrderModel {
   final double? totalPrice;
   final String? deliveryAddress;
   final DateTime? createdAt;
+  final DateTime? desiredDeliveryDate;
+  final String? assignedLivreurId;
+  final String? assignedLivreurName;
 
   // Informations utilisateur jointes
   final String? userName;
@@ -20,6 +23,9 @@ class OrderModel {
     this.totalPrice,
     this.deliveryAddress,
     this.createdAt,
+    this.desiredDeliveryDate,
+    this.assignedLivreurId,
+    this.assignedLivreurName,
     this.userName,
     this.userEmail,
     this.userPhone,
@@ -29,8 +35,10 @@ class OrderModel {
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final total = json['total_price'];
+    // Parse client info from users (orders_user_id_fkey relation)
     final user = json['users'] as Map<String, dynamic>?;
-
+    // Parse livreur info from livreur alias (orders_assigned_livreur_id_fkey relation)
+    final livreur = json['livreur'] as Map<String, dynamic>?;
     return OrderModel(
       id: json['id'] as int?,
       userId: json['user_id'] as String?,
@@ -40,6 +48,11 @@ class OrderModel {
       createdAt: json['created_at'] == null
           ? null
           : DateTime.parse(json['created_at'] as String),
+      desiredDeliveryDate: json['desired_delivery_date'] == null
+          ? null
+          : DateTime.parse(json['desired_delivery_date'] as String),
+      assignedLivreurId: json['assigned_livreur_id'] as String?,
+      assignedLivreurName: livreur?['name'] as String?,
       userName: user?['name'] as String?,
       userEmail: user?['email'] as String?,
       userPhone: user?['phone'] as String?,
@@ -56,6 +69,9 @@ class OrderModel {
       'total_price': totalPrice,
       'delivery_address': deliveryAddress,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
+      if (desiredDeliveryDate != null)
+        'desired_delivery_date': desiredDeliveryDate!.toIso8601String(),
+      if (assignedLivreurId != null) 'assigned_livreur_id': assignedLivreurId,
     };
   }
 }

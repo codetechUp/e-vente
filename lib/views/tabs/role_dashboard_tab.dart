@@ -22,6 +22,8 @@ class RoleDashboardTab extends StatelessWidget {
         return const _LivreurDashboardView();
       case UserRole.client:
         return const SizedBox.shrink();
+      case UserRole.preparateur:
+        return const SizedBox.shrink();
     }
   }
 }

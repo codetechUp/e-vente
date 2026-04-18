@@ -9,7 +9,7 @@ import '../models/user_model.dart';
 import '../services/app_users_service.dart';
 import '../services/auth_service.dart';
 
-enum UserRole { admin, client, livreur }
+enum UserRole { admin, client, livreur, preparateur }
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService;
@@ -58,6 +58,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isAdmin => _role == UserRole.admin;
   bool get isClient => _role == UserRole.client;
   bool get isLivreur => _role == UserRole.livreur;
+  bool get isPreparateur => _role == UserRole.preparateur;
 
   Future<void> _loadRole() async {
     final uid = Supabase.instance.client.auth.currentUser?.id;
@@ -137,6 +138,10 @@ class AuthProvider extends ChangeNotifier {
           break;
         case 'livreur':
           _role = UserRole.livreur;
+          break;
+        case 'preparateur':
+        case 'préparateur':
+          _role = UserRole.preparateur;
           break;
         default:
           _role = UserRole.client;

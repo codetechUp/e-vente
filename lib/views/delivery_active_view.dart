@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/delivery_model.dart';
 import '../providers/deliveries_provider.dart';
+import '../services/notification_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import 'delivery_details_view.dart';
@@ -16,6 +17,14 @@ class DeliveryActiveView extends StatelessWidget {
   ) async {
     try {
       await context.read<DeliveriesProvider>().markAsDelivered(delivery);
+      if (delivery.orderId != null) {
+        await NotificationService().notifyLivraisonConfirmee(
+          orderId: delivery.orderId!,
+        );
+        await NotificationService().notifyCommandeLivree(
+          orderId: delivery.orderId!,
+        );
+      }
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

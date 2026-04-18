@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -11,6 +12,7 @@ import 'providers/deliveries_provider.dart';
 import 'providers/expenses_provider.dart';
 import 'providers/orders_provider.dart';
 import 'routes/app_router.dart';
+import 'services/notification_service.dart';
 import 'utils/constants/app_colors.dart';
 import 'utils/constants/app_strings.dart';
 import 'utils/supabase_config.dart';
@@ -23,6 +25,7 @@ Future<void> main() async {
 
   // Initialiser les données de formatage de dates pour le français
   await initializeDateFormatting('fr_FR', null);
+  await NotificationService().init();
 
   if (SupabaseConfig.url.isEmpty || SupabaseConfig.anonKey.isEmpty) {
     throw StateError(
@@ -66,6 +69,13 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: AppStrings.appName,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('fr', 'FR'), Locale('en')],
+      locale: const Locale('fr', 'FR'),
       theme: ThemeData(
         colorScheme: colorScheme,
         useMaterial3: true,

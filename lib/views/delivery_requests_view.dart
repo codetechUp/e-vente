@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/delivery_model.dart';
 import '../providers/deliveries_provider.dart';
+import '../services/notification_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 
@@ -15,6 +16,13 @@ class DeliveryRequestsView extends StatelessWidget {
   ) async {
     try {
       await context.read<DeliveriesProvider>().acceptDelivery(delivery);
+      if (delivery.orderId != null) {
+        await NotificationService().notifyNouvelleDemandelivraison(
+          orderId: delivery.orderId!,
+          clientName: delivery.customerName ?? 'Client',
+          address: delivery.deliveryAddress,
+        );
+      }
 
       if (!context.mounted) return;
       ScaffoldMessenger.of(

@@ -5,11 +5,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
+import '../services/realtime_notification_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
 import 'admin_shell_view.dart';
 import 'delivery_person_shell_view.dart';
+import 'preparateur_shell_view.dart';
 import 'profile_view.dart';
 import 'tabs/catalog_tab.dart';
 import 'tabs/deliveries_tab.dart';
@@ -27,6 +29,24 @@ class MainShellView extends StatefulWidget {
 
 class _MainShellViewState extends State<MainShellView> {
   int _index = 0;
+  RealtimeNotificationService? _realtimeService;
+
+  @override
+  void initState() {
+    super.initState();
+    // Démarrer l'écoute Realtime pour les notifications
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final authProvider = context.read<AuthProvider>();
+      _realtimeService = RealtimeNotificationService();
+      _realtimeService?.startListening(authProvider);
+    });
+  }
+
+  @override
+  void dispose() {
+    _realtimeService?.stopListening();
+    super.dispose();
+  }
 
   List<Widget> _buildTabs(UserRole? role) {
     switch (role) {
@@ -158,6 +178,10 @@ class _MainShellViewState extends State<MainShellView> {
 
     if (role == UserRole.livreur) {
       return const DeliveryPersonShellView();
+    }
+
+    if (role == UserRole.preparateur) {
+      return const PreparateurShellView();
     }
 
     final tabs = _buildTabs(role);

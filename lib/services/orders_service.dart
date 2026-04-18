@@ -20,7 +20,9 @@ class OrdersService {
   Future<List<OrderModel>> getAll() async {
     final rows = await _client
         .from('orders')
-        .select('*, users(name, email, phone, nom, adresse)')
+        .select(
+          '*, users!orders_user_id_fkey(name, email, phone, nom, adresse), livreur:users!orders_assigned_livreur_id_fkey(name)',
+        )
         .order('created_at', ascending: false);
 
     return (rows as List)
@@ -32,7 +34,9 @@ class OrdersService {
   Future<List<OrderModel>> getAllForUser(String userId) async {
     final rows = await _client
         .from('orders')
-        .select('*, users(name, email, phone, nom, adresse)')
+        .select(
+          '*, users!orders_user_id_fkey(name, email, phone, nom, adresse), livreur:users!orders_assigned_livreur_id_fkey(name)',
+        )
         .eq('user_id', userId)
         .order('created_at', ascending: false);
 

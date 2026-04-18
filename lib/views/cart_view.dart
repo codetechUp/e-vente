@@ -11,6 +11,7 @@ import '../providers/orders_provider.dart';
 import '../services/app_users_service.dart';
 import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
+import '../services/notification_service.dart';
 import '../services/stocks_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
@@ -33,33 +34,110 @@ class _CartViewState extends State<CartView> {
 
   bool _loading = false;
 
-  Future<String?> _askDeliveryAddress() async {
-    final controller = TextEditingController();
+  Future<Map<String, dynamic>?> _askDeliveryInfo() async {
+    final addressController = TextEditingController();
+    DateTime? selectedDate;
 
-    final result = await showDialog<String?>(
+    final result = await showDialog<Map<String, dynamic>?>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Adresse de livraison'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: 'Ex: Cocody, Rue 12, Maison 45',
-            ),
-            textInputAction: TextInputAction.done,
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('Annuler'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('Valider'),
-            ),
-          ],
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setStateDialog) {
+            return AlertDialog(
+              title: const Text('Informations de livraison'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Adresse de livraison',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: addressController,
+                      decoration: const InputDecoration(
+                        hintText: 'Ex: Dakar, Grand Mbao, Rue 12',
+                      ),
+                      textInputAction: TextInputAction.done,
+                      autofocus: true,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Date de livraison souhaitée',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: DateTime.now().add(
+                            const Duration(days: 1),
+                          ),
+                          firstDate: DateTime.now(),
+                          lastDate: DateTime.now().add(
+                            const Duration(days: 30),
+                          ),
+                          locale: const Locale('fr', 'FR'),
+                        );
+                        if (picked != null) {
+                          setStateDialog(() => selectedDate = picked);
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_today_outlined, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              selectedDate == null
+                                  ? 'Choisir une date'
+                                  : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
+                              style: TextStyle(
+                                color: selectedDate == null
+                                    ? Colors.grey
+                                    : Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(null),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop({
+                    'address': addressController.text.trim(),
+                    'date': selectedDate,
+                  }),
+                  child: const Text('Confirmer'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -101,9 +179,12 @@ class _CartViewState extends State<CartView> {
       return;
     }
 
-    final address = await _askDeliveryAddress();
+    final deliveryInfo = await _askDeliveryInfo();
     if (!mounted) return;
-    if (address == null) return;
+    if (deliveryInfo == null) return;
+
+    final address = deliveryInfo['address'] as String?;
+    final desiredDate = deliveryInfo['date'] as DateTime?;
 
     setState(() => _loading = true);
 
@@ -113,7 +194,8 @@ class _CartViewState extends State<CartView> {
           userId: appUser!.id,
           status: 'pending',
           totalPrice: cart.totalPrice,
-          deliveryAddress: address.isEmpty ? null : address,
+          deliveryAddress: (address?.isEmpty ?? true) ? null : address,
+          desiredDeliveryDate: desiredDate,
         ),
       );
 
@@ -144,6 +226,9 @@ class _CartViewState extends State<CartView> {
       }
 
       cart.clear();
+
+      // Notification client : commande confirmée
+      await NotificationService().notifyCommandeConfirmee(orderId: orderId);
 
       if (!mounted) return;
 
