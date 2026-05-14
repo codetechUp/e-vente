@@ -36,7 +36,9 @@ class _CartViewState extends State<CartView> {
 
   Future<Map<String, dynamic>?> _askDeliveryInfo() async {
     final addressController = TextEditingController();
-    DateTime? selectedDate;
+    final now = DateTime.now();
+    final isLate = now.hour >= 23;
+    String? selectedSlot; // 'demain' or 'apres-demain'
 
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
@@ -44,16 +46,122 @@ class _CartViewState extends State<CartView> {
         return StatefulBuilder(
           builder: (ctx, setStateDialog) {
             return AlertDialog(
-              title: const Text('Informations de livraison'),
+              title: const Text(
+                'Informations de livraison',
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              ),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // --- Info magasin ---
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Gros divers est ouvert 7j/7',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '> Commander avant 21h pour une livraison demain',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // --- Checkbox OK ---
+                    InkWell(
+                      onTap: () {
+                        // Lecture seule, toujours OK
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: AppColors.accent,
+                                width: 2,
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.check,
+                                size: 14,
+                                color: AppColors.accent,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'OK',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // --- Heure Livraison Préférée ---
+                    const Text(
+                      'Heure Livraison Préférée',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Si une option n'apparaît pas, la capacité de Gros divers est déjà atteinte",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Option Demain (seulement si heure < 23h)
+                    if (!isLate)
+                      _DeliverySlotOption(
+                        label: 'Demain (8h-19h)',
+                        selected: selectedSlot == 'demain',
+                        onTap: () => setStateDialog(() => selectedSlot = 'demain'),
+                      ),
+                    // Option Après-Demain
+                    _DeliverySlotOption(
+                      label: 'Après-Demain (8h-19h)',
+                      selected: selectedSlot == 'apres-demain',
+                      onTap: () => setStateDialog(() => selectedSlot = 'apres-demain'),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // --- Adresse de livraison ---
                     const Text(
                       'Adresse de livraison',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         fontSize: 13,
                       ),
                     ),
@@ -64,61 +172,6 @@ class _CartViewState extends State<CartView> {
                         hintText: 'Ex: Dakar, Grand Mbao, Rue 12',
                       ),
                       textInputAction: TextInputAction.done,
-                      autofocus: true,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Date de livraison souhaitée',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    InkWell(
-                      onTap: () async {
-                        final picked = await showDatePicker(
-                          context: ctx,
-                          initialDate: DateTime.now().add(
-                            const Duration(days: 1),
-                          ),
-                          firstDate: DateTime.now(),
-                          lastDate: DateTime.now().add(
-                            const Duration(days: 30),
-                          ),
-                          locale: const Locale('fr', 'FR'),
-                        );
-                        if (picked != null) {
-                          setStateDialog(() => selectedDate = picked);
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18),
-                            const SizedBox(width: 8),
-                            Text(
-                              selectedDate == null
-                                  ? 'Choisir une date'
-                                  : '${selectedDate!.day.toString().padLeft(2, '0')}/${selectedDate!.month.toString().padLeft(2, '0')}/${selectedDate!.year}',
-                              style: TextStyle(
-                                color: selectedDate == null
-                                    ? Colors.grey
-                                    : Colors.black87,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ],
                 ),
@@ -131,7 +184,7 @@ class _CartViewState extends State<CartView> {
                 FilledButton(
                   onPressed: () => Navigator.of(ctx).pop({
                     'address': addressController.text.trim(),
-                    'date': selectedDate,
+                    'slot': selectedSlot,
                   }),
                   child: const Text('Confirmer'),
                 ),
@@ -184,7 +237,19 @@ class _CartViewState extends State<CartView> {
     if (deliveryInfo == null) return;
 
     final address = deliveryInfo['address'] as String?;
-    final desiredDate = deliveryInfo['date'] as DateTime?;
+    final slot = deliveryInfo['slot'] as String?;
+
+    // Calculer la date de livraison à partir du créneau choisi
+    DateTime? desiredDate;
+    if (slot != null) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      if (slot == 'demain') {
+        desiredDate = today.add(const Duration(days: 1));
+      } else if (slot == 'apres-demain') {
+        desiredDate = today.add(const Duration(days: 2));
+      }
+    }
 
     setState(() => _loading = true);
 
@@ -350,86 +415,109 @@ class _CartViewState extends State<CartView> {
               ),
               children: [
                 ...cart.items.map(
-                  (item) => Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(AppSizes.radius),
-                          child: Container(
-                            width: 64,
-                            height: 64,
-                            color: AppColors.background,
-                            child: (item.product.imageUrl ?? '').trim().isEmpty
-                                ? const Icon(
-                                    Icons.image_outlined,
-                                    color: AppColors.mutedText,
-                                  )
-                                : Image.network(
-                                    item.product.imageUrl!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.broken_image_outlined,
-                                      color: AppColors.mutedText,
-                                    ),
-                                  ),
-                          ),
+                  (item) => Stack(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                          border: Border.all(color: AppColors.border),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 34),
+                          child: Row(
                             children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(AppSizes.radius),
+                                child: Container(
+                                  width: 64,
+                                  height: 64,
+                                  color: AppColors.background,
+                                  child: (item.product.imageUrl ?? '').trim().isEmpty
+                                      ? const Icon(
+                                          Icons.image_outlined,
+                                          color: AppColors.mutedText,
+                                        )
+                                      : Image.network(
+                                          item.product.imageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) => const Icon(
+                                            Icons.broken_image_outlined,
+                                            color: AppColors.mutedText,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.product.name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context).textTheme.titleSmall
+                                          ?.copyWith(fontWeight: FontWeight.w900),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '${item.effectivePrice.toStringAsFixed(0)} F',
+                                      style: Theme.of(context).textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: AppColors.accent,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                    ),
+                                    if (item.effectivePrice < item.product.price)
+                                      Text(
+                                        '${item.product.price.toStringAsFixed(0)} F',
+                                        style: Theme.of(context).textTheme.labelSmall
+                                            ?.copyWith(
+                                              decoration: TextDecoration.lineThrough,
+                                              color: AppColors.mutedText,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => cart.decrement(item.product),
+                                icon: const Icon(Icons.remove_circle_outline),
+                              ),
                               Text(
-                                item.product.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                                '${item.quantity}',
                                 style: Theme.of(context).textTheme.titleSmall
                                     ?.copyWith(fontWeight: FontWeight.w900),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '${item.effectivePrice.toStringAsFixed(0)} F',
-                                style: Theme.of(context).textTheme.labelLarge
-                                    ?.copyWith(
-                                      color: AppColors.accent,
-                                      fontWeight: FontWeight.w900,
-                                    ),
+                              IconButton(
+                                onPressed: () => cart.increment(item.product),
+                                icon: const Icon(Icons.add_circle_outline),
                               ),
-                              if (item.effectivePrice < item.product.price)
-                                Text(
-                                  '${item.product.price.toStringAsFixed(0)} F',
-                                  style: Theme.of(context).textTheme.labelSmall
-                                      ?.copyWith(
-                                        decoration: TextDecoration.lineThrough,
-                                        color: AppColors.mutedText,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
                             ],
                           ),
                         ),
-                        IconButton(
-                          onPressed: () => cart.decrement(item.product),
-                          icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: IconButton(
+                          onPressed: () => cart.remove(item.product),
+                          icon: const Icon(Icons.delete_outline),
+                          color: AppColors.danger,
+                          iconSize: 20,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
+                          ),
+                          tooltip: 'Supprimer',
                         ),
-                        Text(
-                          '${item.quantity}',
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        IconButton(
-                          onPressed: () => cart.increment(item.product),
-                          icon: const Icon(Icons.add_circle_outline),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -439,7 +527,12 @@ class _CartViewState extends State<CartView> {
           : SafeArea(
               top: false,
               child: Container(
-                padding: const EdgeInsets.all(AppSizes.padding),
+                padding: EdgeInsets.fromLTRB(
+                  AppSizes.padding,
+                  AppSizes.padding,
+                  AppSizes.padding,
+                  AppSizes.padding + MediaQuery.of(context).padding.bottom,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   border: Border(top: BorderSide(color: AppColors.border)),
@@ -475,6 +568,73 @@ class _CartViewState extends State<CartView> {
                 ),
               ),
             ),
+    );
+  }
+}
+
+class _DeliverySlotOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  const _DeliverySlotOption({
+    required this.label,
+    required this.selected,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: selected ? AppColors.accent : Colors.grey.shade300,
+              width: selected ? 2 : 1,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            color: selected ? AppColors.accent.withValues(alpha: 0.06) : null,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected ? AppColors.accent : Colors.grey.shade400,
+                    width: 2,
+                  ),
+                ),
+                child: selected
+                    ? const Center(
+                        child: Icon(
+                          Icons.circle,
+                          size: 11,
+                          color: AppColors.accent,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  color: selected ? AppColors.accent : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

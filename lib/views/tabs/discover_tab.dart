@@ -7,11 +7,31 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../models/product_model.dart';
 import '../../models/promotion_model.dart';
+import '../../models/category_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/products_service.dart';
 import '../../services/promotions_service.dart';
+import '../../services/categories_service.dart';
 import '../../utils/constants/app_colors.dart';
 import '../product_details_view.dart';
+
+int _grillePriority(String? grille) {
+  final value = (grille ?? '').trim().toLowerCase();
+  switch (value) {
+    case '1':
+    case 'premium':
+      return 0;
+    case '2':
+    case 'silver':
+      return 1;
+    case '3':
+    case 'gold':
+      return 2;
+    default:
+      return 3;
+  }
+}
 
 class _PromoProduct {
   final PromotionModel promo;
@@ -37,12 +57,14 @@ class DiscoverTab extends StatefulWidget {
 class _DiscoverTabState extends State<DiscoverTab> {
   final _promotionsService = PromotionsService();
   final _productsService = ProductsService();
+  final _categoriesService = CategoriesService();
   final _searchController = TextEditingController();
 
   late Future<_DiscoverData> _future;
   String? _userName;
   String? _userPhone;
   String _searchQuery = '';
+  int? _selectedCategoryId;
 
   @override
   void initState() {
@@ -87,6 +109,14 @@ class _DiscoverTabState extends State<DiscoverTab> {
     final promos = results[0] as List<PromotionModel>;
     final products = results[1] as List<ProductModel>;
 
+    List<CategoryModel> categories;
+    try {
+      categories = await _categoriesService.getAll();
+    } catch (e) {
+      debugPrint('[DiscoverTab] Erreur chargement catégories: $e');
+      categories = [];
+    }
+
     final now = DateTime.now();
     final activePromos = promos.where((p) {
       if (!p.isActive) return false;
@@ -99,18 +129,37 @@ class _DiscoverTabState extends State<DiscoverTab> {
     final promoProducts = <_PromoProduct>[];
     for (final promo in activePromos) {
       final product = productMap[promo.productId];
-      if (product != null) {
+      if (product != null && product.display) {
         promoProducts.add(_PromoProduct(promo: promo, product: product));
       }
     }
+    promoProducts.sort((a, b) {
+      final grilleCompare = _grillePriority(
+        a.product.grille,
+      ).compareTo(_grillePriority(b.product.grille));
+      if (grilleCompare != 0) return grilleCompare;
+      return a.product.name.toLowerCase().compareTo(
+        b.product.name.toLowerCase(),
+      );
+    });
 
     final regularProducts = products
-        .where((p) => !promoProducts.any((pp) => pp.product.id == p.id))
+        .where(
+          (p) => p.display && !promoProducts.any((pp) => pp.product.id == p.id),
+        )
         .toList();
+    regularProducts.sort((a, b) {
+      final grilleCompare = _grillePriority(
+        a.grille,
+      ).compareTo(_grillePriority(b.grille));
+      if (grilleCompare != 0) return grilleCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
 
     return _DiscoverData(
       promoProducts: promoProducts,
       regularProducts: regularProducts,
+      categories: categories,
     );
   }
 
@@ -123,6 +172,160 @@ class _DiscoverTabState extends State<DiscoverTab> {
     } else {
       await launchUrl(whatsappWeb, mode: LaunchMode.externalApplication);
     }
+  }
+
+  Future<void> _launchCall() async {
+    const phone = '221779990202';
+    final telUri = Uri.parse('tel:$phone');
+    if (await canLaunchUrl(telUri)) {
+      await launchUrl(telUri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _showContactModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Contacter le vendeur',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _launchWhatsApp();
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF25D366),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                LucideIcons.messageCircle,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'WhatsApp',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '+221 77 999 02 02',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _launchCall();
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.accent.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent,
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: const Icon(
+                                Icons.call,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Appeler',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '+221 77 999 02 02',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -157,7 +360,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                         ),
 
                         Text(
-                          '+221 77 999 02 02',
+                          _userPhone ?? '+221 77 999 02 02',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -175,47 +378,54 @@ class _DiscoverTabState extends State<DiscoverTab> {
                       LucideIcons.messageCircle,
                       color: Colors.white,
                     ),
-                    onPressed: _launchWhatsApp,
+                    onPressed: _showContactModal,
                   ),
-                  Consumer<CartProvider>(
-                    builder: (context, cart, _) {
-                      return Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.shopping_cart_outlined,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const CartView(),
+                  Consumer<AuthProvider>(
+                    builder: (context, auth, _) {
+                      if (auth.isAdmin == true || auth.isLivreur == true) {
+                        return const SizedBox.shrink();
+                      }
+                      return Consumer<CartProvider>(
+                        builder: (context, cart, _) {
+                          return Stack(
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.shopping_cart_outlined,
+                                  color: Colors.white,
                                 ),
-                              );
-                            },
-                          ),
-                          if (cart.items.isNotEmpty)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: const BoxDecoration(
-                                  color: Colors.red,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${cart.items.length}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const CartView(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              if (cart.items.isNotEmpty)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '${cart.items.length}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                        ],
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -230,51 +440,101 @@ class _DiscoverTabState extends State<DiscoverTab> {
                   children: [
                     Container(
                       padding: const EdgeInsets.all(16),
-                      color: Colors.white,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (value) {
-                          setState(() {
-                            _searchQuery = value.toLowerCase();
-                          });
-                        },
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher un produit...',
-                          prefixIcon: const Icon(
-                            LucideIcons.search,
-                            color: AppColors.primary,
-                          ),
-                          suffixIcon: _searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(LucideIcons.x),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      _searchQuery = '';
-                                    });
-                                  },
-                                )
-                              : null,
-                          filled: true,
-                          fillColor: AppColors.background,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: AppColors.border),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: AppColors.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
+                      color: const Color(0xFFF6F8FF),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFF3E5CF5,
+                              ).withValues(alpha: 0.12),
+                              blurRadius: 20,
+                              offset: const Offset(0, 6),
+                            ),
+                          ],
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          onChanged: (value) {
+                            setState(() {
+                              _searchQuery = value.toLowerCase();
+                            });
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher un produit...',
+                            prefixIcon: const Icon(
+                              LucideIcons.search,
                               color: AppColors.primary,
-                              width: 2,
+                            ),
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(LucideIcons.x),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {
+                                        _searchQuery = '';
+                                      });
+                                    },
+                                  )
+                                : null,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: Color(0xFF6C4DFF),
+                                width: 2,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    // Category filter chips
+                    FutureBuilder<_DiscoverData>(
+                      future: _future,
+                      builder: (context, snapshot) {
+                        final categories = snapshot.data?.categories ?? [];
+                        if (categories.isEmpty) return const SizedBox.shrink();
+                        return SizedBox(
+                          height: 40,
+                          child: ListView(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            children: [
+                              _CategoryFilterChip(
+                                label: 'Tout',
+                                active: _selectedCategoryId == null,
+                                onTap: () => setState(() => _selectedCategoryId = null),
+                              ),
+                              const SizedBox(width: 8),
+                              ...categories.where((c) => c.id != null).map((c) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _CategoryFilterChip(
+                                    label: c.name,
+                                    active: _selectedCategoryId == c.id,
+                                    onTap: () => setState(() => _selectedCategoryId = c.id),
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: FutureBuilder<_DiscoverData>(
                         future: _future,
@@ -299,16 +559,79 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                   _searchQuery,
                                 ),
                               )
+                              .where((pp) => _selectedCategoryId == null || pp.product.categoryId == _selectedCategoryId)
                               .toList();
                           final filteredRegularProducts = data.regularProducts
                               .where(
                                 (p) =>
                                     p.name.toLowerCase().contains(_searchQuery),
                               )
+                              .where((p) => _selectedCategoryId == null || p.categoryId == _selectedCategoryId)
                               .toList();
+                          final premiumPromoProducts = filteredPromoProducts
+                              .where(
+                                (pp) => _grillePriority(pp.product.grille) == 0,
+                              )
+                              .toList();
+                          final premiumRegularProducts = filteredRegularProducts
+                              .where((p) => _grillePriority(p.grille) == 0)
+                              .toList();
+                          final premiumSpotlight = [
+                            ...premiumPromoProducts.map((e) => e.product),
+                            ...premiumRegularProducts,
+                          ];
 
                           return CustomScrollView(
                             slivers: [
+                              if (premiumSpotlight.isNotEmpty) ...[
+                                const SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                                    child: Text(
+                                      'A la une',
+                                      style: TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w900,
+                                        color: Color(0xFF222A52),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: 248,
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      scrollDirection: Axis.horizontal,
+                                      itemBuilder: (context, index) {
+                                        final product = premiumSpotlight[index];
+                                        return SizedBox(
+                                          width: 176,
+                                          child: _ProductCard(
+                                            product: product,
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ProductDetailsView(
+                                                        product: product,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      },
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 12),
+                                      itemCount: premiumSpotlight.length,
+                                    ),
+                                  ),
+                                ),
+                              ],
                               if (filteredPromoProducts.isNotEmpty) ...[
                                 SliverToBoxAdapter(
                                   child: Container(
@@ -513,7 +836,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                 ),
                 Positioned(
                   right: 16,
-                  bottom: 80,
+                  bottom: 80 + MediaQuery.of(context).padding.bottom,
                   child: Container(
                     decoration: BoxDecoration(
                       color: const Color(0xFF25D366),
@@ -529,7 +852,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                     child: Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: _launchWhatsApp,
+                        onTap: _showContactModal,
                         borderRadius: BorderRadius.circular(28),
                         child: Container(
                           width: 56,
@@ -557,11 +880,59 @@ class _DiscoverTabState extends State<DiscoverTab> {
 class _DiscoverData {
   final List<_PromoProduct> promoProducts;
   final List<ProductModel> regularProducts;
+  final List<CategoryModel> categories;
 
   const _DiscoverData({
     required this.promoProducts,
     required this.regularProducts,
+    required this.categories,
   });
+}
+
+class _CategoryFilterChip extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback? onTap;
+
+  const _CategoryFilterChip({
+    required this.label,
+    required this.active,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? AppColors.accent : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: active ? AppColors.accent : AppColors.border,
+          ),
+          boxShadow: active
+              ? [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: active ? Colors.white : AppColors.text,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ProductCard extends StatelessWidget {
@@ -582,9 +953,15 @@ class _ProductCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.border, width: 1),
-          boxShadow: AppColors.cardShadow,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2D3A8C).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -594,7 +971,7 @@ class _ProductCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.background,
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(16),
+                    top: Radius.circular(20),
                   ),
                 ),
                 child: (product.imageUrl ?? '').trim().isEmpty
@@ -603,7 +980,7 @@ class _ProductCard extends StatelessWidget {
                       )
                     : ClipRRect(
                         borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(12),
+                          top: Radius.circular(20),
                         ),
                         child: Image.network(
                           product.imageUrl!,
@@ -743,9 +1120,15 @@ class _PromoProductCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(color: AppColors.border, width: 1),
-          boxShadow: AppColors.cardShadow,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2D3A8C).withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

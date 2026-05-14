@@ -42,7 +42,7 @@ class OrderTrackingView extends StatelessWidget {
           AppSizes.padding,
           10,
           AppSizes.padding,
-          40,
+          100,
         ),
         children: [
           Container(
@@ -181,6 +181,30 @@ class OrderTrackingView extends StatelessWidget {
                         ),
                         child: Row(
                           children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                width: 52,
+                                height: 52,
+                                color: AppColors.background,
+                                child: (i.productImageUrl?.isNotEmpty == true)
+                                    ? Image.network(
+                                        i.productImageUrl!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const Icon(
+                                          Icons.image_outlined,
+                                          color: AppColors.mutedText,
+                                          size: 24,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.image_outlined,
+                                        color: AppColors.mutedText,
+                                        size: 24,
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 i.productName ??

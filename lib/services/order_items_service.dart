@@ -22,7 +22,7 @@ class OrderItemsService {
   Future<List<OrderItemModel>> getAllForOrder(int orderId) async {
     final rows = await _client
         .from('order_items')
-        .select('*, products(name)')
+        .select('*, products(name, image_url)')
         .eq('order_id', orderId)
         .order('id', ascending: true);
 

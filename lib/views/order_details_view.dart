@@ -44,7 +44,7 @@ Color statusColor(String status) {
     case 'shipped':
       return const Color(0xFF3B82F6);
     case 'processing':
-      return const Color(0xFFF59E0B);
+      return AppColors.accent;
     case 'cancelled':
       return AppColors.danger;
     default:
@@ -447,6 +447,51 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                     ],
                   ),
                 ),
+                if (order.desiredDeliveryDate != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          color: Colors.white.withValues(alpha: 0.8),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Date de livraison souhaitée',
+                                style: Theme.of(context).textTheme.labelMedium
+                                    ?.copyWith(
+                                      color: Colors.white.withValues(alpha: 0.8),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                DateFormat('dd MMM yyyy', 'fr_FR')
+                                    .format(order.desiredDeliveryDate!),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -758,19 +803,28 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
                             ),
                             child: Row(
                               children: [
-                                Container(
-                                  width: 48,
-                                  height: 48,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.accent.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: AppColors.accent,
-                                    size: 24,
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    width: 52,
+                                    height: 52,
+                                    color: AppColors.background,
+                                    child: (i.productImageUrl?.isNotEmpty == true)
+                                        ? Image.network(
+                                            i.productImageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) =>
+                                                const Icon(
+                                                  Icons.image_outlined,
+                                                  color: AppColors.mutedText,
+                                                  size: 24,
+                                                ),
+                                          )
+                                        : const Icon(
+                                            Icons.image_outlined,
+                                            color: AppColors.mutedText,
+                                            size: 24,
+                                          ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),

@@ -27,7 +27,7 @@ class DeliveriesService {
             delivery_address, 
             total_price,
             user_id,
-            users(name, phone, email),
+            users!orders_user_id_fkey(name, phone, email),
             order_items(
               id,
               quantity,

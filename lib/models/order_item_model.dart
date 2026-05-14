@@ -5,6 +5,7 @@ class OrderItemModel {
   final int quantity;
   final double? price;
   final String? productName;
+  final String? productImageUrl;
 
   const OrderItemModel({
     this.id,
@@ -13,14 +14,17 @@ class OrderItemModel {
     this.quantity = 0,
     this.price,
     this.productName,
+    this.productImageUrl,
   });
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     final priceValue = json['price'];
     final products = json['products'];
     String? productName;
+    String? productImageUrl;
     if (products is Map<String, dynamic>) {
       productName = products['name'] as String?;
+      productImageUrl = products['image_url'] as String?;
     }
 
     return OrderItemModel(
@@ -30,6 +34,7 @@ class OrderItemModel {
       quantity: (json['quantity'] as int?) ?? 0,
       price: priceValue == null ? null : (priceValue as num).toDouble(),
       productName: productName,
+      productImageUrl: productImageUrl,
     );
   }
 

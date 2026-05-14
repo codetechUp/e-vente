@@ -44,13 +44,19 @@ class _CatalogTabState extends State<CatalogTab> {
 
   Future<_CatalogData> _load() async {
     final results = await Future.wait([
-      _categoriesService.getAll(),
       _productsService.getAll(),
       _promotionsService.getAll(),
     ]);
-    final categories = results[0] as List<CategoryModel>;
-    final products = results[1] as List<ProductModel>;
-    final promos = results[2] as List<PromotionModel>;
+    final products = results[0] as List<ProductModel>;
+    final promos = results[1] as List<PromotionModel>;
+
+    List<CategoryModel> categories;
+    try {
+      categories = await _categoriesService.getAll();
+    } catch (e) {
+      debugPrint('[CatalogTab] Erreur chargement catégories: $e');
+      categories = [];
+    }
 
     final now = DateTime.now();
     final promoMap = <int, int>{};
@@ -99,14 +105,22 @@ class _CatalogTabState extends State<CatalogTab> {
                     },
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 IconButton(
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh),
+                  onPressed: () {
+                    // TODO: Implement barcode scanner
+                  },
+                  icon: const Icon(Icons.qr_code_scanner),
                   color: AppColors.mutedText,
-                  tooltip: 'Rafraîchir',
+                  iconSize: 22,
+                  tooltip: 'Scanner un code-barres',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 2),
                 BadgeIconButton(
                   icon: Icons.shopping_cart_outlined,
                   badge: context.watch<CartProvider>().totalItems,
@@ -139,11 +153,22 @@ class _CatalogTabState extends State<CatalogTab> {
                 final data = snapshot.data;
                 if (data == null) return const SizedBox.shrink();
 
-                var filtered = _selectedCategoryId == null
-                    ? data.products
-                    : data.products
-                          .where((p) => p.categoryId == _selectedCategoryId)
-                          .toList();
+                // Special value -1 for "En promo" filter
+                const promoFilterId = -1;
+                final isPromoFilter = _selectedCategoryId == promoFilterId;
+
+                List<ProductModel> filtered;
+                if (isPromoFilter) {
+                  filtered = data.products
+                      .where((p) => data.promoMap.containsKey(p.id))
+                      .toList();
+                } else if (_selectedCategoryId == null) {
+                  filtered = data.products;
+                } else {
+                  filtered = data.products
+                      .where((p) => p.categoryId == _selectedCategoryId)
+                      .toList();
+                }
 
                 if (_searchQuery.isNotEmpty) {
                   filtered = filtered
@@ -155,7 +180,7 @@ class _CatalogTabState extends State<CatalogTab> {
                   children: [
                     const SizedBox(width: 8),
                     SizedBox(
-                      width: 92,
+                      width: 80,
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: 110),
                         children: [
@@ -166,12 +191,20 @@ class _CatalogTabState extends State<CatalogTab> {
                             onTap: () =>
                                 setState(() => _selectedCategoryId = null),
                           ),
+                          const SizedBox(height: 4),
+                          _CategoryChip(
+                            icon: Icons.local_fire_department,
+                            label: 'En promo',
+                            active: isPromoFilter,
+                            onTap: () =>
+                                setState(() => _selectedCategoryId = promoFilterId),
+                          ),
                           const SizedBox(height: 6),
                           ...data.categories
                               .where((c) => c.id != null)
                               .map(
                                 (c) => _CategoryChip(
-                                  icon: Icons.category_outlined,
+                                  icon: _iconForCategory(c.name),
                                   label: c.name,
                                   active: _selectedCategoryId == c.id,
                                   onTap: () => setState(
@@ -249,7 +282,7 @@ class _CatalogTabState extends State<CatalogTab> {
                                     crossAxisCount: 2,
                                     mainAxisSpacing: 12,
                                     crossAxisSpacing: 12,
-                                    childAspectRatio: 0.72,
+                                    childAspectRatio: 0.65,
                                   ),
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
@@ -258,22 +291,6 @@ class _CatalogTabState extends State<CatalogTab> {
                                 return _CatalogProductCard(
                                   product: p,
                                   discountPercent: discountPct,
-                                  onAdd: () {
-                                    double? effectivePrice;
-                                    if (discountPct != null) {
-                                      effectivePrice =
-                                          p.price * (1 - discountPct / 100);
-                                    }
-                                    context.read<CartProvider>().add(
-                                      p,
-                                      effectivePrice: effectivePrice,
-                                    );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Ajouté au panier'),
-                                      ),
-                                    );
-                                  },
                                 );
                               },
                             ),
@@ -357,6 +374,20 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
+IconData _iconForCategory(String name) {
+  final lower = name.toLowerCase().trim();
+  if (lower.contains('jus') || lower.contains('boite')) return Icons.water_drop;
+  if (lower.contains('soda') || lower.contains('can')) return Icons.local_drink;
+  if (lower.contains('café') || lower.contains('cafe') || lower.contains('thé') || lower.contains('the') || lower.contains('céréale') || lower.contains('cereale')) {
+    return Icons.coffee;
+  }
+  if (lower.contains('cosmétique') || lower.contains('cosmetique')) return Icons.face;
+  if (lower.contains('cuisine')) return Icons.cookie;
+  if (lower.contains('biscuit') || lower.contains('gâteau') || lower.contains('gateau')) return Icons.bakery_dining;
+  if (lower.contains('conserve')) return Icons.inventory_2;
+  return Icons.category_outlined;
+}
+
 class _CategoryChip extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -374,33 +405,45 @@ class _CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           decoration: BoxDecoration(
             color: active ? AppColors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: active ? AppColors.accent : AppColors.border,
               width: active ? 2 : 1,
             ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 icon,
+                size: 20,
                 color: active ? AppColors.accent : AppColors.mutedText,
               ),
               const SizedBox(height: 6),
               Text(
                 label,
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 10,
                   color: active ? AppColors.text : AppColors.mutedText,
                 ),
               ),
@@ -412,14 +455,24 @@ class _CategoryChip extends StatelessWidget {
   }
 }
 
+String _formatPrice(double price) {
+  final parts = price.toStringAsFixed(0).split('');
+  final buffer = StringBuffer();
+  for (int i = 0; i < parts.length; i++) {
+    if (i > 0 && (parts.length - i) % 3 == 0) {
+      buffer.write(' ');
+    }
+    buffer.write(parts[i]);
+  }
+  return buffer.toString();
+}
+
 class _CatalogProductCard extends StatelessWidget {
   final ProductModel product;
   final int? discountPercent;
-  final VoidCallback onAdd;
 
   const _CatalogProductCard({
     required this.product,
-    required this.onAdd,
     this.discountPercent,
   });
 
@@ -430,15 +483,22 @@ class _CatalogProductCard extends StatelessWidget {
         ? product.price * (1 - discountPercent! / 100)
         : product.price;
 
+    final cart = context.watch<CartProvider>();
+    final quantity = cart.items
+        .where((item) => item.product.id == product.id)
+        .fold<int>(0, (sum, item) => sum + item.quantity);
+
+    // No points
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
+            blurRadius: 12,
             offset: const Offset(0, 4),
           ),
         ],
@@ -446,17 +506,18 @@ class _CatalogProductCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Image section
           Expanded(
             child: Stack(
               children: [
                 Container(
-                  margin: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: AppColors.background,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(12),
                     child: (product.imageUrl ?? '').trim().isEmpty
                         ? const Center(
                             child: Icon(
@@ -482,8 +543,8 @@ class _CatalogProductCard extends StatelessWidget {
                 ),
                 if (hasPromo)
                   Positioned(
-                    top: 14,
-                    left: 14,
+                    top: 16,
+                    left: 16,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -514,89 +575,149 @@ class _CatalogProductCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                Positioned(
-                  bottom: 14,
-                  right: 14,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: onAdd,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+              ],
+            ),
+          ),
+          // Info section
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Product name
+                Text(
+                  product.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    height: 1.3,
+                    color: AppColors.text,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                // Price
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (hasPromo) ...[
+                      Text(
+                        '${_formatPrice(discountedPrice)} F',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${_formatPrice(product.price)} F',
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(
+                              decoration: TextDecoration.lineThrough,
+                              color: AppColors.mutedText,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                      ),
+                    ] else
+                      Text(
+                        '${_formatPrice(product.price)} F',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(
+                              color: AppColors.accent,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 14,
+                            ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Quantity counter
+                Row(
+                  children: [
+                    if (quantity > 0) ...[
+                      InkWell(
+                        onTap: () => cart.decrement(product),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: AppColors.accent,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.accent.withValues(alpha: 0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          borderRadius: BorderRadius.circular(14),
+                          child: const Icon(
+                            Icons.remove,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '$quantity',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    InkWell(
+                      onTap: () {
+                        cart.add(
+                          product,
+                          effectivePrice: hasPromo ? discountedPrice : null,
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: AppColors.accent,
+                          shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(
-                                0xFF55D80F,
-                              ).withValues(alpha: 0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
+                              color: AppColors.accent.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
                         child: const Icon(
                           Icons.add,
                           color: Colors.white,
-                          size: 22,
+                          size: 16,
                         ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if (hasPromo) ...[
-                      Text(
-                        '${discountedPrice.toStringAsFixed(0)} F',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w900,
-                            ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '${product.price.toStringAsFixed(0)} F',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          decoration: TextDecoration.lineThrough,
-                          color: AppColors.mutedText,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ] else
-                      Text(
-                        '${product.price.toStringAsFixed(0)} F',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w900,
-                            ),
-                      ),
                   ],
                 ),
               ],

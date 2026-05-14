@@ -74,7 +74,7 @@ class _OrdersTabState extends State<OrdersTab> {
       case 'shipped':
         return const Color(0xFF3B82F6);
       case 'processing':
-        return const Color(0xFFF59E0B);
+        return AppColors.accent;
       case 'cancelled':
         return AppColors.danger;
       default:
@@ -172,7 +172,7 @@ class _OrdersTabState extends State<OrdersTab> {
               AppSizes.padding,
               10,
               AppSizes.padding,
-              110,
+              120,
             ),
             children: [
               Row(
@@ -300,7 +300,7 @@ class _OrdersTabState extends State<OrdersTab> {
                           .where((o) => o.status == 'processing')
                           .length,
                       isSelected: _selectedStatusFilter == 'processing',
-                      color: const Color(0xFFF59E0B),
+                      color: AppColors.accent,
                       onTap: () {
                         setState(() {
                           _selectedStatusFilter = 'processing';

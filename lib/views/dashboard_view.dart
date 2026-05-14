@@ -158,6 +158,13 @@ class _DashboardViewState extends State<DashboardView> {
           }
 
           final data = snapshot.data!;
+          final deliveryRate = data.totalOrders > 0
+              ? (data.deliveredOrders / data.totalOrders * 100)
+              : 0.0;
+          final cancelRate = data.totalOrders > 0
+              ? (data.cancelledOrders / data.totalOrders * 100)
+              : 0.0;
+          final activeOrders = data.totalOrders - data.cancelledOrders;
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(
@@ -227,6 +234,33 @@ class _DashboardViewState extends State<DashboardView> {
                 ),
               ),
               const SizedBox(height: 24),
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _InsightChip(
+                      icon: Icons.rocket_launch_outlined,
+                      label:
+                          'Livraison ${deliveryRate.toStringAsFixed(1)}%',
+                      color: const Color(0xFF10B981),
+                    ),
+                    const SizedBox(width: 10),
+                    _InsightChip(
+                      icon: Icons.cancel_outlined,
+                      label: 'Annulation ${cancelRate.toStringAsFixed(1)}%',
+                      color: const Color(0xFFEF4444),
+                    ),
+                    const SizedBox(width: 10),
+                    _InsightChip(
+                      icon: Icons.receipt_long_outlined,
+                      label: '$activeOrders commande(s) active(s)',
+                      color: const Color(0xFF6366F1),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
@@ -248,6 +282,30 @@ class _DashboardViewState extends State<DashboardView> {
                       gradient: const LinearGradient(
                         colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
                       ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: _KpiGlassCard(
+                      title: 'Livrees',
+                      value: '${data.deliveredOrders}',
+                      subtitle: '${deliveryRate.toStringAsFixed(1)}% du total',
+                      icon: Icons.check_circle,
+                      color: const Color(0xFF10B981),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _KpiGlassCard(
+                      title: 'Annulees',
+                      value: '${data.cancelledOrders}',
+                      subtitle: '${cancelRate.toStringAsFixed(1)}% du total',
+                      icon: Icons.cancel,
+                      color: const Color(0xFFEF4444),
                     ),
                   ),
                 ],
@@ -306,6 +364,14 @@ class _DashboardViewState extends State<DashboardView> {
                       total: data.totalOrders,
                       icon: Icons.check_circle_outline,
                       color: AppColors.success,
+                    ),
+                    const SizedBox(height: 16),
+                    _StatusRow(
+                      label: 'Annulees',
+                      value: data.cancelledOrders,
+                      total: data.totalOrders,
+                      icon: Icons.cancel_outlined,
+                      color: AppColors.danger,
                     ),
                   ],
                 ),
@@ -573,6 +639,115 @@ class _ModernStatCard extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InsightChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _InsightChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17, color: color),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KpiGlassCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+
+  const _KpiGlassCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.12),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: AppColors.mutedText,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.mutedText,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],

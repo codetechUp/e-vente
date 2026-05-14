@@ -22,6 +22,7 @@ class _LoginViewState extends State<LoginView> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -145,10 +146,19 @@ class _LoginViewState extends State<LoginView> {
                       AppTextField(
                         controller: _passwordController,
                         label: 'Mot de passe *',
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         validator: _passwordValidator,
                         prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: const Icon(Icons.visibility_off_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          },
+                        ),
                       ),
                       const SizedBox(height: 18),
                       AppButton(

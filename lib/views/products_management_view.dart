@@ -35,6 +35,27 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
   Future<_ProductsData> _load() async {
     final categories = await _categoriesService.getAll();
     final products = await _productsService.getAll();
+    products.sort((a, b) {
+      int priority(String? value) {
+        switch ((value ?? '').trim().toLowerCase()) {
+          case '1':
+          case 'premium':
+            return 0;
+          case '2':
+          case 'silver':
+            return 1;
+          case '3':
+          case 'gold':
+            return 2;
+          default:
+            return 3;
+        }
+      }
+
+      final grilleCompare = priority(a.grille).compareTo(priority(b.grille));
+      if (grilleCompare != 0) return grilleCompare;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
     return _ProductsData(categories: categories, products: products);
   }
 
@@ -84,8 +105,10 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
             'name': payload.name,
             'description': payload.description,
             'price': payload.price,
+            'grille': payload.grille,
             'category_id': payload.categoryId,
             'image_url': payload.imageUrl,
+            'display': payload.display,
           });
         },
       ),
@@ -295,6 +318,20 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final grille = (product.grille ?? '').trim().toLowerCase();
+    String? grilleLabel;
+    Color? grilleColor;
+    if (grille == '1' || grille == 'premium') {
+      grilleLabel = 'Premium';
+      grilleColor = const Color(0xFF6C4DFF);
+    } else if (grille == '2' || grille == 'silver') {
+      grilleLabel = 'Silver';
+      grilleColor = const Color(0xFF5A84F7);
+    } else if (grille == '3' || grille == 'gold') {
+      grilleLabel = 'Gold';
+      grilleColor = const Color(0xFFEF9F2F);
+    }
+
     return Container(
       padding: const EdgeInsets.all(AppSizes.padding),
       decoration: BoxDecoration(
@@ -341,6 +378,63 @@ class _ProductTile extends StatelessWidget {
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                     color: AppColors.mutedText,
                     fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (grilleLabel != null) ...[
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: grilleColor,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      grilleLabel,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: product.display
+                        ? const Color(0xFF55D80F).withValues(alpha: 0.1)
+                        : AppColors.mutedText.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        product.display
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                        size: 12,
+                        color: product.display
+                            ? const Color(0xFF55D80F)
+                            : AppColors.mutedText,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        product.display ? 'Affiché' : 'Masqué',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: product.display
+                              ? const Color(0xFF55D80F)
+                              : AppColors.mutedText,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -438,8 +532,10 @@ class _ProductSheetState extends State<_ProductSheet> {
   late final TextEditingController _price;
 
   CategoryModel? _category;
+  String? _grille;
   XFile? _pickedImage;
   String? _imageUrl;
+  bool _display = true;
 
   bool _loading = false;
 
@@ -458,6 +554,8 @@ class _ProductSheetState extends State<_ProductSheet> {
     );
 
     _imageUrl = widget.initial?.imageUrl;
+    _grille = widget.initial?.grille;
+    _display = widget.initial?.display ?? true;
 
     _category = widget.categories.firstWhere(
       (c) => c.id != null && c.id == widget.initial?.categoryId,
@@ -525,8 +623,10 @@ class _ProductSheetState extends State<_ProductSheet> {
             ? null
             : _description.text.trim(),
         price: price,
+        grille: _grille,
         categoryId: _category?.id,
         imageUrl: uploadedUrl,
+        display: _display,
       );
 
       await widget.onSubmit(payload);
@@ -693,6 +793,76 @@ class _ProductSheetState extends State<_ProductSheet> {
                         .toList(),
                     onChanged: (value) => setState(() => _category = value),
                   ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String?>(
+                    value: _grille,
+                    isExpanded: true,
+                    hint: const Text('Choisir une grille de mise en avant'),
+                    items: const [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Aucune'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'premium',
+                        child: Text('Premium (ou 1)'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'silver',
+                        child: Text('Silver (ou 2)'),
+                      ),
+                      DropdownMenuItem<String?>(
+                        value: 'gold',
+                        child: Text('Gold (ou 3)'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(() => _grille = value),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSizes.radius),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.visibility_outlined,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Afficher sur Découvrir',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Switch(
+                      value: _display,
+                      onChanged: (value) => setState(() => _display = value),
+                      activeColor: const Color(0xFF55D80F),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),

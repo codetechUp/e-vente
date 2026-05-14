@@ -23,6 +23,8 @@ class _RegisterViewState extends State<RegisterView> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   @override
   void dispose() {
@@ -168,19 +170,37 @@ class _RegisterViewState extends State<RegisterView> {
                       AppTextField(
                         controller: _passwordController,
                         label: 'Mot de passe *',
-                        obscureText: true,
+                        obscureText: _obscurePassword,
                         validator: _passwordValidator,
                         prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: const Icon(Icons.visibility_off_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          },
+                        ),
                       ),
                       const SizedBox(height: 14),
                       AppTextField(
                         controller: _confirmController,
                         label: 'Confirmer le mot de passe *',
-                        obscureText: true,
+                        obscureText: _obscureConfirm,
                         validator: _confirmValidator,
                         prefixIcon: const Icon(Icons.lock_reset_outlined),
-                        suffixIcon: const Icon(Icons.visibility_off_outlined),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscureConfirm
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                          onPressed: () {
+                            setState(() => _obscureConfirm = !_obscureConfirm);
+                          },
+                        ),
                       ),
                       const SizedBox(height: 18),
                       AppButton(
