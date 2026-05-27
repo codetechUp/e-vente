@@ -24,6 +24,8 @@ class RoleDashboardTab extends StatelessWidget {
         return const SizedBox.shrink();
       case UserRole.preparateur:
         return const SizedBox.shrink();
+      case UserRole.commercial:
+        return const SizedBox.shrink();
     }
   }
 }

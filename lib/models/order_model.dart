@@ -8,6 +8,7 @@ class OrderModel {
   final DateTime? desiredDeliveryDate;
   final String? assignedLivreurId;
   final String? assignedLivreurName;
+  final String? deliverySlot;
 
   // Informations utilisateur jointes
   final String? userName;
@@ -31,6 +32,7 @@ class OrderModel {
     this.userPhone,
     this.userNom,
     this.userAdresse,
+    this.deliverySlot,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class OrderModel {
       userPhone: user?['phone'] as String?,
       userNom: user?['nom'] as String?,
       userAdresse: user?['adresse'] as String?,
+      deliverySlot: json['delivery_slot'] as String?,
     );
   }
 
@@ -72,6 +75,7 @@ class OrderModel {
       if (desiredDeliveryDate != null)
         'desired_delivery_date': desiredDeliveryDate!.toIso8601String(),
       if (assignedLivreurId != null) 'assigned_livreur_id': assignedLivreurId,
+      if (deliverySlot != null) 'delivery_slot': deliverySlot,
     };
   }
 }

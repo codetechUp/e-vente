@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/app_user_model.dart';
 import '../models/delivery_model.dart';
 import '../models/order_model.dart';
+import '../models/order_item_model.dart';
 import '../services/deliveries_service.dart';
 import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
+import '../services/invoices_service.dart';
+import '../services/pdf_invoice_service.dart';
 import '../utils/constants/app_colors.dart';
-import '../utils/constants/app_sizes.dart';
-import '../widgets/info_row.dart';
+import '../providers/auth_provider.dart';
 
 const _statusList = [
   'pending',
@@ -25,7 +29,7 @@ String statusLabel(String status) {
     case 'pending':
       return 'En attente';
     case 'processing':
-      return 'En cours de traitement';
+      return 'En cours';
     case 'shipped':
       return 'Expédiée';
     case 'delivered':
@@ -88,12 +92,18 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
   String? _selectedLivreurId;
   String? _currentLivreurId;
 
+  // Client exact GPS coordinates
+  double? _clientLatitude;
+  double? _clientLongitude;
+  bool _fetchingLocation = false;
+
   @override
   void initState() {
     super.initState();
     _status = widget.order.status;
     _loadLivreurs();
     _loadCurrentDelivery();
+    _loadClientLocation();
   }
 
   Future<void> _loadLivreurs() async {
@@ -164,6 +174,77 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
     } catch (_) {}
   }
 
+  Future<void> _loadClientLocation() async {
+    final userId = widget.order.userId;
+    if (userId == null) return;
+    if (mounted) setState(() => _fetchingLocation = true);
+    try {
+      final data = await Supabase.instance.client
+          .from('users')
+          .select('latitude, longitude')
+          .eq('id', userId)
+          .maybeSingle();
+      if (data != null && mounted) {
+        setState(() {
+          _clientLatitude = data['latitude'] != null ? (data['latitude'] as num).toDouble() : null;
+          _clientLongitude = data['longitude'] != null ? (data['longitude'] as num).toDouble() : null;
+        });
+      }
+    } catch (_) {
+      // Ignore
+    } finally {
+      if (mounted) setState(() => _fetchingLocation = false);
+    }
+  }
+
+  Future<void> _openClientLocation() async {
+    final order = widget.order;
+    Uri url;
+    if (_clientLatitude != null && _clientLongitude != null) {
+      url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$_clientLatitude,$_clientLongitude',
+      );
+    } else if (order.deliveryAddress?.trim().isNotEmpty == true) {
+      final query = Uri.encodeComponent(order.deliveryAddress!);
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    } else if (order.userAdresse?.trim().isNotEmpty == true) {
+      final query = Uri.encodeComponent(order.userAdresse!);
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune adresse ou coordonnée de livraison disponible.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application de cartes.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _save() async {
     final id = widget.order.id;
     if (id == null) return;
@@ -213,6 +294,7 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     final order = widget.order;
     final livreurIds = _livreurs
         .map((l) => l.id)
@@ -224,678 +306,522 @@ class _OrderDetailsViewState extends State<OrderDetailsView> {
         ? _selectedLivreurId
         : null;
 
+    final hasCoordinates = _clientLatitude != null && _clientLongitude != null;
+    final hasAddress = order.deliveryAddress?.trim().isNotEmpty == true || 
+                       order.userAdresse?.trim().isNotEmpty == true;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          'Commande #${order.id ?? '-'}',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
+          'Détails de la commande',
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.white,
+        foregroundColor: AppColors.text,
         elevation: 0,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSizes.padding,
-          10,
-          AppSizes.padding,
-          110,
-        ),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  statusColor(order.status),
-                  statusColor(order.status).withValues(alpha: 0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor(order.status).withValues(alpha: 0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
+        actions: [
+          if (auth.isAdmin || auth.isPreparateur)
+            IconButton(
+              icon: const Icon(Icons.print_outlined),
+              tooltip: 'Imprimer la facture',
+              onPressed: () => _showPrintOptionsDialog(),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               children: [
+                // 1. Order Title & Status Badge
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Icon(
-                        statusIcon(order.status),
-                        color: Colors.white,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Commande #${order.id ?? '-'}',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.text,
+                            ),
                           ),
                           const SizedBox(height: 4),
                           Text(
                             order.createdAt != null
-                                ? DateFormat(
-                                    'dd MMM yyyy, HH:mm',
-                                    'fr_FR',
-                                  ).format(order.createdAt!)
+                                ? DateFormat('dd MMM yyyy, HH:mm', 'fr_FR').format(order.createdAt!)
                                 : '-',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.mutedText,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: statusColor(order.status).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            statusIcon(order.status),
+                            color: statusColor(order.status),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            statusLabel(order.status),
+                            style: TextStyle(
+                              color: statusColor(order.status),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
+
+                // 2. Large Total Amount Header
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.info_outline,
-                                  size: 16,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Statut',
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.8,
-                                        ),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              statusLabel(order.status),
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                          ],
+                      const Text(
+                        'MONTANT TOTAL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.mutedText,
+                          letterSpacing: 1,
                         ),
                       ),
-                      Container(
-                        width: 1,
-                        height: 40,
-                        color: Colors.white.withValues(alpha: 0.2),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.payments_outlined,
-                                  size: 16,
-                                  color: Colors.white.withValues(alpha: 0.8),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Montant',
-                                  style: Theme.of(context).textTheme.labelMedium
-                                      ?.copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.8,
-                                        ),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${(order.totalPrice ?? 0).toStringAsFixed(0)} F',
-                              style: Theme.of(context).textTheme.titleMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                            ),
-                          ],
+                      const SizedBox(height: 6),
+                      Text(
+                        '${(order.totalPrice ?? 0).toStringAsFixed(0)} F',
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
+
+                // 3. Client & Delivery Information
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.location_on,
-                        color: Colors.white.withValues(alpha: 0.8),
-                        size: 20,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Adresse de livraison',
-                              style: Theme.of(context).textTheme.labelMedium
-                                  ?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.8),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              order.deliveryAddress?.isNotEmpty == true
-                                  ? order.deliveryAddress!
-                                  : 'Non spécifiée',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                        ),
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                ),
-                if (order.desiredDeliveryDate != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'CLIENT & LIVRAISON',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.mutedText,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (order.userNom?.isNotEmpty == true) ...[
+                        _buildInfoItem(Icons.person_outline, 'Nom', order.userNom!),
+                        const SizedBox(height: 12),
+                      ],
+                      if (order.userPhone?.isNotEmpty == true) ...[
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildInfoItem(Icons.phone_outlined, 'Téléphone', order.userPhone!),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.call, color: AppColors.primary, size: 20),
+                              onPressed: () async {
+                                final url = Uri.parse('tel:${order.userPhone}');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (order.deliveryAddress?.isNotEmpty == true) ...[
+                        _buildInfoItem(Icons.location_on_outlined, 'Adresse de livraison', order.deliveryAddress!),
+                        const SizedBox(height: 12),
+                      ] else if (order.userAdresse?.isNotEmpty == true) ...[
+                        _buildInfoItem(Icons.location_on_outlined, 'Adresse client', order.userAdresse!),
+                        const SizedBox(height: 12),
+                      ],
+                      if (order.desiredDeliveryDate != null) ...[
+                        _buildInfoItem(
                           Icons.calendar_today_outlined,
-                          color: Colors.white.withValues(alpha: 0.8),
-                          size: 20,
+                          'Livraison souhaitée',
+                          "${DateFormat('dd MMM yyyy', 'fr_FR').format(order.desiredDeliveryDate!)}${order.deliverySlot != null ? ', ${order.deliverySlot}' : ''}",
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Date de livraison souhaitée',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(
-                                      color: Colors.white.withValues(alpha: 0.8),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                DateFormat('dd MMM yyyy', 'fr_FR')
-                                    .format(order.desiredDeliveryDate!),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        const SizedBox(height: 16),
                       ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.brandSurface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.person_outline,
-                        color: Color(0xFF3B82F6),
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Informations client',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                if (order.userNom?.isNotEmpty == true) ...[
-                  InfoRow(
-                    icon: Icons.badge_outlined,
-                    label: 'Nom',
-                    value: order.userNom!,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (order.userEmail?.isNotEmpty == true) ...[
-                  InfoRow(
-                    icon: Icons.email_outlined,
-                    label: 'Email',
-                    value: order.userEmail!,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (order.userPhone?.isNotEmpty == true) ...[
-                  InfoRow(
-                    icon: Icons.phone_outlined,
-                    label: 'Téléphone',
-                    value: order.userPhone!,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-                if (order.userAdresse?.isNotEmpty == true) ...[
-                  InfoRow(
-                    icon: Icons.home_outlined,
-                    label: 'Adresse',
-                    value: order.userAdresse!,
-                  ),
-                ],
-                if (order.userNom?.isEmpty != false &&
-                    order.userEmail?.isEmpty != false &&
-                    order.userPhone?.isEmpty != false &&
-                    order.userAdresse?.isEmpty != false)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      'Aucune information client disponible',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.mutedText,
-                        fontWeight: FontWeight.w600,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.brandSurface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF55D80F), Color(0xFF1FAE3C)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.settings,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Gestion de la commande',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Changer le statut',
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _status,
-                      isExpanded: true,
-                      isDense: true,
-                      items: _statusList
-                          .map(
-                            (s) => DropdownMenuItem(
-                              value: s,
-                              child: Text(statusLabel(s)),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: _loading
-                          ? null
-                          : (v) => setState(() => _status = v ?? 'pending'),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                InputDecorator(
-                  decoration: const InputDecoration(
-                    labelText: 'Assigner un livreur',
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String?>(
-                      value: selectedLivreurValue,
-                      isExpanded: true,
-                      isDense: true,
-                      items: [
-                        const DropdownMenuItem<String?>(
-                          value: null,
-                          child: Text('Aucun livreur'),
-                        ),
-                        ..._livreurs.map(
-                          (l) => DropdownMenuItem<String?>(
-                            value: l.id,
-                            child: Text(
-                              (l.name?.isNotEmpty ?? false) ? l.name! : l.email,
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: _loading
-                          ? null
-                          : (v) => setState(() => _selectedLivreurId = v),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: AppSizes.buttonHeight,
-                  child: FilledButton(
-                    onPressed: _loading ? null : _save,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
+
+                      // Location Button
+                      if (_fetchingLocation)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
                             child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Enregistrer'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppColors.brandSurface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppColors.border, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.shopping_bag_outlined,
-                        color: AppColors.accent,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Articles commandés',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                FutureBuilder(
-                  future: order.id == null
-                      ? Future.value(const [])
-                      : _itemsService.getAllForOrder(order.id!),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: CircularProgressIndicator(),
-                        ),
-                      );
-                    }
-
-                    if (snapshot.hasError) {
-                      return Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Text('Erreur: ${snapshot.error}'),
-                      );
-                    }
-
-                    final items = snapshot.data ?? const [];
-                    if (items.isEmpty) {
-                      return Container(
-                        padding: const EdgeInsets.all(AppSizes.paddingLg),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(
-                            AppSizes.radiusLg,
                           ),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Text(
-                          'Aucun article',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(
-                                color: AppColors.mutedText,
-                                fontWeight: FontWeight.w700,
-                              ),
-                        ),
-                      );
-                    }
-
-                    return Column(
-                      children: [
-                        ...items.asMap().entries.map((entry) {
-                          final i = entry.value;
-                          final index = entry.key;
-                          return Container(
-                            margin: EdgeInsets.only(
-                              bottom: index < items.length - 1 ? 12 : 0,
-                            ),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.background,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: AppColors.border),
-                            ),
-                            child: Row(
+                        )
+                      else if (hasCoordinates || hasAddress)
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _openClientLocation,
+                            icon: const Icon(Icons.map_outlined, size: 18),
+                            label: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Container(
-                                    width: 52,
-                                    height: 52,
-                                    color: AppColors.background,
-                                    child: (i.productImageUrl?.isNotEmpty == true)
-                                        ? Image.network(
-                                            i.productImageUrl!,
-                                            fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) =>
-                                                const Icon(
-                                                  Icons.image_outlined,
-                                                  color: AppColors.mutedText,
-                                                  size: 24,
-                                                ),
-                                          )
-                                        : const Icon(
-                                            Icons.image_outlined,
-                                            color: AppColors.mutedText,
-                                            size: 24,
-                                          ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        i.productName?.isNotEmpty == true
-                                            ? i.productName!
-                                            : 'Produit #${i.productId ?? '-'}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${(i.price ?? 0).toStringAsFixed(0)} F × ${i.quantity}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(
-                                              color: AppColors.mutedText,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
+                                const Text('Localiser le client'),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      colors: [
-                                        Color(0xFF55D80F),
-                                        Color(0xFF1FAE3C),
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: (hasCoordinates ? AppColors.success : Colors.orange).withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    '${((i.price ?? 0) * i.quantity).toStringAsFixed(0)} F',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall
-                                        ?.copyWith(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w900,
-                                        ),
+                                    hasCoordinates ? 'GPS' : 'Adresse',
+                                    style: TextStyle(
+                                      color: hasCoordinates ? AppColors.success : Colors.orange,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
-                          );
-                        }),
-                      ],
-                    );
-                  },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        )
+                      else
+                        const Text(
+                          'Aucune localisation disponible (ni adresse, ni GPS)',
+                          style: TextStyle(fontSize: 12, color: AppColors.danger, fontStyle: FontStyle.italic),
+                        ),
+                    ],
+                  ),
                 ),
+                const SizedBox(height: 20),
+
+                // 4. Order Items
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'ARTICLES COMMANDÉS',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.mutedText,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FutureBuilder<List<OrderItemModel>>(
+                        future: order.id == null
+                            ? Future.value(const [])
+                            : _itemsService.getAllForOrder(order.id!),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError) {
+                            return Text('Erreur: ${snapshot.error}');
+                          }
+                          final items = snapshot.data ?? const [];
+                          if (items.isEmpty) {
+                            return const Text('Aucun article commandé.');
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => const Divider(height: 20),
+                            itemBuilder: (context, idx) {
+                              final item = items[idx];
+                              return Row(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      color: AppColors.background,
+                                      child: (item.productImageUrl?.isNotEmpty == true)
+                                          ? Image.network(
+                                              item.productImageUrl!,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, size: 20),
+                                            )
+                                          : const Icon(Icons.image_outlined, size: 20),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.productName ?? 'Produit',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${(item.price ?? 0).toStringAsFixed(0)} F × ${item.quantity}',
+                                          style: const TextStyle(color: AppColors.mutedText, fontSize: 12),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '${((item.price ?? 0) * item.quantity).toStringAsFixed(0)} F',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 5. Management Controls (Admin & Preparateur only)
+                if (auth.isAdmin || auth.isPreparateur)
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ACTIONS ADMINISTRATIVES',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.mutedText,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        DropdownButtonFormField<String>(
+                          value: _status,
+                          decoration: const InputDecoration(
+                            labelText: 'Statut de la commande',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                          items: _statusList.map((s) {
+                            return DropdownMenuItem(
+                              value: s,
+                              child: Text(statusLabel(s)),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _status = val);
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        DropdownButtonFormField<String?>(
+                          value: selectedLivreurValue,
+                          decoration: const InputDecoration(
+                            labelText: 'Livreur assigné',
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('Aucun livreur'),
+                            ),
+                            ..._livreurs.map((l) {
+                              return DropdownMenuItem<String?>(
+                                value: l.id,
+                                child: Text((l.name?.trim().isNotEmpty ?? false) ? l.name! : l.email),
+                              );
+                            }),
+                          ],
+                          onChanged: (val) {
+                            setState(() => _selectedLivreurId = val);
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _save,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            child: const Text('Enregistrer les modifications', style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 40),
               ],
             ),
-          ),
-        ],
-      ),
     );
+  }
+
+  Widget _buildInfoItem(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.mutedText),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 10, color: AppColors.mutedText, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.text),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPrintOptionsDialog() async {
+    final order = widget.order;
+    if (order.id == null) return;
+
+    // Load items first
+    final items = await _itemsService.getAllForOrder(order.id!);
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: AppColors.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Imprimer la facture',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            'Choisissez le format de facture à imprimer ou télécharger.',
+            style: TextStyle(color: AppColors.mutedText, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                _printInvoice(items, isA4: false);
+              },
+              child: const Text('Ticket 80mm', style: TextStyle(color: AppColors.brandGreenDark, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                _printInvoice(items, isA4: true);
+              },
+              child: const Text('Format A4 (PDF)', style: TextStyle(color: AppColors.brandGreenDark, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _printInvoice(List<OrderItemModel> items, {required bool isA4}) async {
+    final order = widget.order;
+    final id = order.id;
+    if (id == null) return;
+
+    final auth = context.read<AuthProvider>();
+    setState(() => _loading = true);
+    try {
+      final invoicesService = InvoicesService();
+      final invoice = await invoicesService.getOrCreateInvoiceForOrder(id, auth.user?.id ?? '');
+
+      await PdfInvoiceService.printInvoice(
+        order: order,
+        items: items,
+        invoiceNumber: invoice.invoiceNumber,
+        isA4: isA4,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur d\'impression : $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 }

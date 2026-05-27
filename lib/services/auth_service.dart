@@ -42,6 +42,28 @@ class AuthService {
     return UserModel(id: user.id, email: user.email ?? email);
   }
 
+  Future<void> sendOtp({required String phone}) async {
+    await _client.auth.signInWithOtp(phone: phone);
+  }
+
+  Future<UserModel> verifyOtp({
+    required String phone,
+    required String token,
+  }) async {
+    final res = await _client.auth.verifyOTP(
+      type: OtpType.sms,
+      token: token,
+      phone: phone,
+    );
+
+    final user = res.user;
+    if (user == null) {
+      throw const AuthException('Verification failed: no user returned');
+    }
+
+    return UserModel(id: user.id, email: user.email ?? '');
+  }
+
   Future<void> logout() async {
     await _client.auth.signOut();
   }

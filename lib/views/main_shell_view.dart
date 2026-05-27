@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../models/app_user_model.dart';
+import '../services/app_users_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/orders_provider.dart';
 import '../services/realtime_notification_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
+import '../widgets/web_sidebar.dart';
 import 'admin_shell_view.dart';
 import 'delivery_person_shell_view.dart';
 import 'preparateur_shell_view.dart';
@@ -19,6 +22,7 @@ import 'tabs/discover_tab.dart';
 import 'tabs/management_tab.dart';
 import 'tabs/orders_tab.dart';
 import 'tabs/role_dashboard_tab.dart';
+import 'commercial_shell_view.dart';
 
 class MainShellView extends StatefulWidget {
   const MainShellView({super.key});
@@ -39,6 +43,7 @@ class _MainShellViewState extends State<MainShellView> {
       final authProvider = context.read<AuthProvider>();
       _realtimeService = RealtimeNotificationService();
       _realtimeService?.startListening(authProvider);
+      _checkUserProfile();
     });
   }
 
@@ -184,6 +189,10 @@ class _MainShellViewState extends State<MainShellView> {
       return const PreparateurShellView();
     }
 
+    if (role == UserRole.commercial) {
+      return const CommercialShellView();
+    }
+
     final tabs = _buildTabs(role);
     final navItems = _buildNavItems(role, context);
 
@@ -199,6 +208,32 @@ class _MainShellViewState extends State<MainShellView> {
 
     if (_index >= tabs.length) {
       _index = 0;
+    }
+
+    final isDesktop = MediaQuery.of(context).size.width > 800;
+
+    if (isDesktop) {
+      final sidebarItems = _buildSidebarItems(role, context);
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Row(
+          children: [
+            WebSidebar(
+              currentIndex: _index,
+              items: sidebarItems,
+              onTap: (i) => setState(() => _index = i),
+              onLogout: () => auth.logout(),
+              userName: user?.userMetadata?['name'] as String? ?? 'Utilisateur',
+              userEmail: user?.email ?? '',
+              roleName: _roleDisplayName(role),
+              avatarLetter: user?.avatarLetter ?? '?',
+            ),
+            Expanded(
+              child: IndexedStack(index: _index, children: tabs),
+            ),
+          ],
+        ),
+      );
     }
 
     return Scaffold(
@@ -219,7 +254,7 @@ class _MainShellViewState extends State<MainShellView> {
                       radius: 32,
                       backgroundColor: AppColors.accent.withValues(alpha: 0.18),
                       child: Text(
-                        (user?.email ?? '?')[0].toUpperCase(),
+                        user?.avatarLetter ?? '?',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.w900,
@@ -304,6 +339,52 @@ class _MainShellViewState extends State<MainShellView> {
     );
   }
 
+  List<SidebarItem> _buildSidebarItems(UserRole? role, BuildContext context) {
+    final navItems = _buildNavItems(role, context);
+    return navItems.map((item) {
+      IconData icon = Icons.circle;
+      IconData activeIcon = Icons.circle;
+      if (item.icon is Icon) {
+        icon = (item.icon as Icon).icon ?? Icons.circle;
+      }
+      if (item.activeIcon is Icon) {
+        activeIcon = (item.activeIcon as Icon).icon ?? Icons.circle;
+      }
+      
+      Widget? badgeWidget;
+      if (item.icon is Badge) {
+        final b = item.icon as Badge;
+        badgeWidget = b.label;
+        if (b.child is Icon) {
+          icon = (b.child as Icon).icon ?? Icons.circle;
+        }
+      }
+      if (item.activeIcon is Badge) {
+        final ab = item.activeIcon as Badge;
+        if (ab.child is Icon) {
+          activeIcon = (ab.child as Icon).icon ?? Icons.circle;
+        }
+      }
+      
+      return SidebarItem(
+        icon: icon,
+        activeIcon: activeIcon,
+        label: item.label ?? '',
+        badge: badgeWidget != null ? Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.danger,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: DefaultTextStyle(
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+            child: badgeWidget,
+          ),
+        ) : null,
+      );
+    }).toList();
+  }
+
   Widget _buildOrdersIcon(BuildContext context) {
     final userId = Supabase.instance.client.auth.currentUser?.id;
     final pendingCount = context
@@ -318,6 +399,203 @@ class _MainShellViewState extends State<MainShellView> {
       isLabelVisible: pendingCount > 0,
       backgroundColor: AppColors.danger,
       child: const Icon(Icons.local_shipping_outlined),
+    );
+  }
+
+  Future<void> _checkUserProfile() async {
+    final authProvider = context.read<AuthProvider>();
+    // Attendre un peu que le rôle soit correctement résolu ou chargé
+    if (authProvider.role != UserRole.client) return;
+
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) return;
+
+    try {
+      final userRow = await AppUsersService().getById(currentUser.id);
+      if (userRow != null) {
+        final hasName = userRow.name?.trim().isNotEmpty == true || userRow.nom?.trim().isNotEmpty == true;
+        final hasAddress = userRow.adresse?.trim().isNotEmpty == true;
+        final hasPhone = userRow.phone?.trim().isNotEmpty == true;
+        final hasRealEmail = userRow.email.trim().isNotEmpty == true && userRow.email.contains('@');
+
+        if (!hasName || !hasAddress || !hasPhone || !hasRealEmail) {
+          if (mounted) {
+            _showCompleteProfileDialog(userRow);
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('[MainShellView] Error checking user profile: $e');
+      }
+    }
+  }
+
+  void _showCompleteProfileDialog(AppUserModel userRow) {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController(text: userRow.name ?? userRow.nom ?? '');
+    final phoneCtrl = TextEditingController(text: userRow.phone ?? '');
+    final emailCtrl = TextEditingController(
+      text: userRow.email.contains('@') ? userRow.email : '',
+    );
+    final addressCtrl = TextEditingController(text: userRow.adresse ?? '');
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return PopScope(
+          canPop: false,
+          child: StatefulBuilder(
+            builder: (ctx, setState) {
+              return AlertDialog(
+                backgroundColor: AppColors.surface,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                title: Row(
+                  children: [
+                    const Icon(Icons.lock_person_outlined, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Complétez votre profil',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+                content: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Pour continuer, veuillez renseigner vos informations de profil obligatoires.',
+                          style: TextStyle(color: AppColors.mutedText, fontSize: 13),
+                        ),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Nom complet *',
+                            prefixIcon: const Icon(Icons.person_outline),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Nom obligatoire' : null,
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: 'Numéro de téléphone *',
+                            prefixIcon: const Icon(Icons.phone_outlined),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Téléphone obligatoire';
+                            }
+                            if (v.trim().length < 8) {
+                              return 'Numéro invalide';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            labelText: 'Adresse Email *',
+                            prefixIcon: const Icon(Icons.email_outlined),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Email obligatoire';
+                            }
+                            if (!v.contains('@') || !v.contains('.')) {
+                              return 'Email invalide';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: addressCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Adresse de livraison *',
+                            prefixIcon: const Icon(Icons.location_on_outlined),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          validator: (v) => v == null || v.trim().isEmpty ? 'Adresse obligatoire' : null,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: isSaving
+                        ? null
+                        : () async {
+                            if (formKey.currentState?.validate() ?? false) {
+                              setState(() => isSaving = true);
+                              try {
+                                final usersService = AppUsersService();
+                                await usersService.updateById(userRow.id!, {
+                                  'name': nameCtrl.text.trim(),
+                                  'nom': nameCtrl.text.trim(),
+                                  'phone': phoneCtrl.text.trim(),
+                                  'email': emailCtrl.text.trim(),
+                                  'adresse': addressCtrl.text.trim(),
+                                });
+                                if (ctx.mounted) {
+                                  Navigator.of(ctx).pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Profil complété avec succès !'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                              } catch (e) {
+                                setState(() => isSaving = false);
+                                if (ctx.mounted) {
+                                  ScaffoldMessenger.of(ctx).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Erreur lors de la sauvegarde : $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    child: isSaving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Enregistrer et Continuer'),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
 }

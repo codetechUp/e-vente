@@ -10,23 +10,31 @@ import '../../models/promotion_model.dart';
 import '../../models/category_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/catalog_provider.dart';
 import '../../services/products_service.dart';
 import '../../services/promotions_service.dart';
 import '../../services/categories_service.dart';
 import '../../utils/constants/app_colors.dart';
 import '../product_details_view.dart';
+import '../../models/audio_model.dart';
+import '../../services/audios_service.dart';
+import '../../widgets/promo_notification_dialog.dart';
+import '../../widgets/audio_broadcast_player.dart';
 
 int _grillePriority(String? grille) {
   final value = (grille ?? '').trim().toLowerCase();
   switch (value) {
     case '1':
     case 'premium':
+    case 'vedette':
       return 0;
     case '2':
     case 'silver':
+    case 'promo':
       return 1;
     case '3':
     case 'gold':
+    case 'retour_stock':
       return 2;
     default:
       return 3;
@@ -58,6 +66,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
   final _promotionsService = PromotionsService();
   final _productsService = ProductsService();
   final _categoriesService = CategoriesService();
+  final _audiosService = AudiosService();
   final _searchController = TextEditingController();
 
   late Future<_DiscoverData> _future;
@@ -65,6 +74,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
   String? _userPhone;
   String _searchQuery = '';
   int? _selectedCategoryId;
+  bool _promosShown = false;
 
   @override
   void initState() {
@@ -102,12 +112,14 @@ class _DiscoverTabState extends State<DiscoverTab> {
   }
 
   Future<_DiscoverData> _load() async {
-    final results = await Future.wait([
+    final results = await Future.wait<dynamic>(<Future<dynamic>>[
       _promotionsService.getAll(),
       _productsService.getAll(),
+      _audiosService.getAll(),
     ]);
     final promos = results[0] as List<PromotionModel>;
     final products = results[1] as List<ProductModel>;
+    final audios = results[2] as List<AudioModel>;
 
     List<CategoryModel> categories;
     try {
@@ -118,9 +130,17 @@ class _DiscoverTabState extends State<DiscoverTab> {
     }
 
     final now = DateTime.now();
+    
+    // Filter active promotions
     final activePromos = promos.where((p) {
       if (!p.isActive) return false;
       if (p.endDate != null && p.endDate!.isBefore(now)) return false;
+      return true;
+    }).toList();
+
+    // Filter active audio announcements
+    final activeAudios = audios.where((a) {
+      if (a.expiresAt != null && a.expiresAt!.isBefore(now)) return false;
       return true;
     }).toList();
 
@@ -160,11 +180,34 @@ class _DiscoverTabState extends State<DiscoverTab> {
       promoProducts: promoProducts,
       regularProducts: regularProducts,
       categories: categories,
+      audios: activeAudios,
     );
   }
 
+  void _showPromoSequence(BuildContext context, List<_PromoProduct> promoProducts) {
+    final auth = context.read<AuthProvider>();
+    if (auth.user == null || auth.isClient != true) return;
+
+    if (_promosShown || promoProducts.isEmpty) return;
+    _promosShown = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      for (final pp in promoProducts) {
+        if (!context.mounted) break;
+        await showDialog(
+          context: context,
+          barrierDismissible: true,
+          builder: (ctx) => PromoNotificationDialog(
+            product: pp.product,
+            promotion: pp.promo,
+          ),
+        );
+      }
+    });
+  }
+
   Future<void> _launchWhatsApp() async {
-    const phone = '221779990202';
+    const phone = '+221779990202';
     final whatsappApp = Uri.parse('whatsapp://send?phone=$phone');
     final whatsappWeb = Uri.parse('https://wa.me/$phone');
     if (await canLaunchUrl(whatsappApp)) {
@@ -175,7 +218,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
   }
 
   Future<void> _launchCall() async {
-    const phone = '221779990202';
+    const phone = '+221779990202';
     final telUri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(telUri)) {
       await launchUrl(telUri, mode: LaunchMode.externalApplication);
@@ -414,7 +457,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                       shape: BoxShape.circle,
                                     ),
                                     child: Text(
-                                      '${cart.items.length}',
+                                      '${cart.totalItems}',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
@@ -438,103 +481,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
               children: [
                 Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      color: const Color(0xFFF6F8FF),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFF3E5CF5,
-                              ).withValues(alpha: 0.12),
-                              blurRadius: 20,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          controller: _searchController,
-                          onChanged: (value) {
-                            setState(() {
-                              _searchQuery = value.toLowerCase();
-                            });
-                          },
-                          decoration: InputDecoration(
-                            hintText: 'Rechercher un produit...',
-                            prefixIcon: const Icon(
-                              LucideIcons.search,
-                              color: AppColors.primary,
-                            ),
-                            suffixIcon: _searchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(LucideIcons.x),
-                                    onPressed: () {
-                                      _searchController.clear();
-                                      setState(() {
-                                        _searchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                            filled: true,
-                            fillColor: Colors.white,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: AppColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: BorderSide(color: AppColors.border),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(16),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF6C4DFF),
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 12),
-                    // Category filter chips
-                    FutureBuilder<_DiscoverData>(
-                      future: _future,
-                      builder: (context, snapshot) {
-                        final categories = snapshot.data?.categories ?? [];
-                        if (categories.isEmpty) return const SizedBox.shrink();
-                        return SizedBox(
-                          height: 40,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            children: [
-                              _CategoryFilterChip(
-                                label: 'Tout',
-                                active: _selectedCategoryId == null,
-                                onTap: () => setState(() => _selectedCategoryId = null),
-                              ),
-                              const SizedBox(width: 8),
-                              ...categories.where((c) => c.id != null).map((c) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: _CategoryFilterChip(
-                                    label: c.name,
-                                    active: _selectedCategoryId == c.id,
-                                    onTap: () => setState(() => _selectedCategoryId = c.id),
-                                  ),
-                                );
-                              }),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 8),
+
                     Expanded(
                       child: FutureBuilder<_DiscoverData>(
                         future: _future,
@@ -553,6 +501,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
                             );
                           }
 
+                          _showPromoSequence(context, data.promoProducts);
+
                           final filteredPromoProducts = data.promoProducts
                               .where(
                                 (pp) => pp.product.name.toLowerCase().contains(
@@ -568,70 +518,30 @@ class _DiscoverTabState extends State<DiscoverTab> {
                               )
                               .where((p) => _selectedCategoryId == null || p.categoryId == _selectedCategoryId)
                               .toList();
-                          final premiumPromoProducts = filteredPromoProducts
+                          final spotlightProducts = filteredRegularProducts
                               .where(
-                                (pp) => _grillePriority(pp.product.grille) == 0,
+                                (p) =>
+                                    p.grille == '1' ||
+                                    p.grille == 'premium' ||
+                                    p.grille == 'vedette',
                               )
                               .toList();
-                          final premiumRegularProducts = filteredRegularProducts
-                              .where((p) => _grillePriority(p.grille) == 0)
+
+                          final retourStockProducts = filteredRegularProducts
+                              .where(
+                                (p) =>
+                                    p.grille == '3' ||
+                                    p.grille == 'gold' ||
+                                    p.grille == 'retour_stock',
+                              )
                               .toList();
-                          final premiumSpotlight = [
-                            ...premiumPromoProducts.map((e) => e.product),
-                            ...premiumRegularProducts,
-                          ];
 
                           return CustomScrollView(
                             slivers: [
-                              if (premiumSpotlight.isNotEmpty) ...[
-                                const SliverToBoxAdapter(
-                                  child: Padding(
-                                    padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
-                                    child: Text(
-                                      'A la une',
-                                      style: TextStyle(
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w900,
-                                        color: Color(0xFF222A52),
-                                      ),
-                                    ),
-                                  ),
-                                ),
+                              if (data.audios.isNotEmpty)
                                 SliverToBoxAdapter(
-                                  child: SizedBox(
-                                    height: 248,
-                                    child: ListView.separated(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                      scrollDirection: Axis.horizontal,
-                                      itemBuilder: (context, index) {
-                                        final product = premiumSpotlight[index];
-                                        return SizedBox(
-                                          width: 176,
-                                          child: _ProductCard(
-                                            product: product,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      ProductDetailsView(
-                                                        product: product,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        );
-                                      },
-                                      separatorBuilder: (_, __) =>
-                                          const SizedBox(width: 12),
-                                      itemCount: premiumSpotlight.length,
-                                    ),
-                                  ),
+                                  child: AudioBroadcastPlayer(audios: data.audios),
                                 ),
-                              ],
                               if (filteredPromoProducts.isNotEmpty) ...[
                                 SliverToBoxAdapter(
                                   child: Container(
@@ -681,8 +591,16 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                         ),
                                         const Spacer(),
                                         InkWell(
-                                          onTap: () =>
-                                              widget.onSwitchTab?.call(1),
+                                          onTap: () {
+                                            context
+                                                .read<CatalogProvider>()
+                                                .setFilter(
+                                                  specialFilter:
+                                                      CatalogSpecialFilter
+                                                          .promo,
+                                                );
+                                            widget.onSwitchTab?.call(1);
+                                          },
                                           child: Container(
                                             padding: const EdgeInsets.all(8),
                                             decoration: BoxDecoration(
@@ -693,7 +611,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                             ),
                                             child: Icon(
                                               Icons.arrow_forward,
-                                              color: AppColors.primary,
+                                              color: const Color(0xFFFF6B6B),
                                               size: 20,
                                             ),
                                           ),
@@ -741,7 +659,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                   ),
                                 ),
                               ],
-                              if (filteredRegularProducts.isNotEmpty) ...[
+                              if (retourStockProducts.isNotEmpty) ...[
                                 SliverToBoxAdapter(
                                   child: Container(
                                     padding: const EdgeInsets.fromLTRB(
@@ -758,7 +676,12 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                             vertical: 6,
                                           ),
                                           decoration: BoxDecoration(
-                                            gradient: AppColors.primaryGradient,
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFF4FACFE),
+                                                Color(0xFF00F2FE),
+                                              ],
+                                            ),
                                             borderRadius: BorderRadius.circular(
                                               20,
                                             ),
@@ -767,13 +690,13 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: const [
                                               Icon(
-                                                Icons.shopping_bag_outlined,
+                                                Icons.inventory_2_outlined,
                                                 color: Colors.white,
                                                 size: 18,
                                               ),
                                               SizedBox(width: 6),
                                               Text(
-                                                'Tous les produits',
+                                                'Retour en stock',
                                                 style: TextStyle(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.bold,
@@ -781,6 +704,33 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                                 ),
                                               ),
                                             ],
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        InkWell(
+                                          onTap: () {
+                                            context
+                                                .read<CatalogProvider>()
+                                                .setFilter(
+                                                  specialFilter:
+                                                      CatalogSpecialFilter
+                                                          .retourStock,
+                                                );
+                                            widget.onSwitchTab?.call(1);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: AppColors.cardShadow,
+                                            ),
+                                            child: Icon(
+                                              Icons.arrow_forward,
+                                              color: const Color(0xFF4FACFE),
+                                              size: 20,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -807,20 +757,101 @@ class _DiscoverTabState extends State<DiscoverTab> {
                                       index,
                                     ) {
                                       return _ProductCard(
-                                        product: filteredRegularProducts[index],
+                                        product: retourStockProducts[index],
                                         onTap: () {
                                           Navigator.push(
                                             context,
                                             MaterialPageRoute(
                                               builder: (_) => ProductDetailsView(
                                                 product:
-                                                    filteredRegularProducts[index],
+                                                    retourStockProducts[index],
                                               ),
                                             ),
                                           );
                                         },
                                       );
-                                    }, childCount: filteredRegularProducts.length),
+                                    }, childCount: retourStockProducts.length),
+                                  ),
+                                ),
+                              ],
+                              if (spotlightProducts.isNotEmpty) ...[
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: EdgeInsets.fromLTRB(16, 14, 16, 8),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          'A la une',
+                                          style: TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w900,
+                                            color: Color(0xFF222A52),
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        InkWell(
+                                          onTap: () {
+                                            context
+                                                .read<CatalogProvider>()
+                                                .setFilter(
+                                                  specialFilter:
+                                                      CatalogSpecialFilter
+                                                          .vedette,
+                                                );
+                                            widget.onSwitchTab?.call(1);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: AppColors.cardShadow,
+                                            ),
+                                            child: Icon(
+                                              Icons.arrow_forward,
+                                              color: const Color(0xFF222A52),
+                                              size: 20,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                SliverToBoxAdapter(
+                                  child: SizedBox(
+                                    height: 248,
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
+                                      scrollDirection: Axis.horizontal,
+                                      itemBuilder: (context, index) {
+                                        final product =
+                                            spotlightProducts[index];
+                                        return SizedBox(
+                                          width: 176,
+                                          child: _ProductCard(
+                                            product: product,
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ProductDetailsView(
+                                                        product: product,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        );
+                                      },
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(width: 12),
+                                      itemCount: spotlightProducts.length,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -829,6 +860,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
                               ),
                             ],
                           );
+
                         },
                       ),
                     ),
@@ -881,58 +913,14 @@ class _DiscoverData {
   final List<_PromoProduct> promoProducts;
   final List<ProductModel> regularProducts;
   final List<CategoryModel> categories;
+  final List<AudioModel> audios;
 
   const _DiscoverData({
     required this.promoProducts,
     required this.regularProducts,
     required this.categories,
+    required this.audios,
   });
-}
-
-class _CategoryFilterChip extends StatelessWidget {
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  const _CategoryFilterChip({
-    required this.label,
-    required this.active,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: active ? AppColors.accent : AppColors.surface,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? AppColors.accent : AppColors.border,
-          ),
-          boxShadow: active
-              ? [
-                  BoxShadow(
-                    color: AppColors.accent.withValues(alpha: 0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : AppColors.text,
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ProductCard extends StatelessWidget {
@@ -968,26 +956,30 @@ class _ProductCard extends StatelessWidget {
           children: [
             Expanded(
               child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: const BorderRadius.vertical(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
                     top: Radius.circular(20),
                   ),
                 ),
                 child: (product.imageUrl ?? '').trim().isEmpty
                     ? const Center(
-                        child: Icon(Icons.image, size: 40, color: Colors.grey),
-                      )
-                    : ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(20),
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 40,
+                          color: AppColors.mutedText,
                         ),
-                        child: Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) => const Center(
-                            child: Icon(Icons.broken_image, color: Colors.grey),
+                      )
+                    : Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.contain,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) => const Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            size: 40,
+                            color: AppColors.mutedText,
                           ),
                         ),
                       ),
@@ -1137,33 +1129,30 @@ class _PromoProductCard extends StatelessWidget {
               child: Stack(
                 children: [
                   Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: const BorderRadius.vertical(
+                    padding: const EdgeInsets.all(12),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
                         top: Radius.circular(12),
                       ),
                     ),
                     child: (product.imageUrl ?? '').trim().isEmpty
                         ? const Center(
                             child: Icon(
-                              Icons.image,
+                              Icons.image_outlined,
                               size: 40,
-                              color: Colors.grey,
+                              color: AppColors.mutedText,
                             ),
                           )
-                        : ClipRRect(
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(12),
-                            ),
-                            child: Image.network(
-                              product.imageUrl!,
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  color: Colors.grey,
-                                ),
+                        : Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.contain,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                size: 40,
+                                color: AppColors.mutedText,
                               ),
                             ),
                           ),

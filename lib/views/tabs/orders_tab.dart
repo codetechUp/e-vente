@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/app_user_model.dart';
 import '../../models/order_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -28,6 +29,7 @@ class _OrdersTabState extends State<OrdersTab> {
   final _searchController = TextEditingController();
 
   late Future<List<OrderModel>> _future;
+  AppUserModel? _currentUserProfile;
   String _searchQuery = '';
   String? _selectedStatusFilter;
 
@@ -52,13 +54,13 @@ class _OrdersTabState extends State<OrdersTab> {
       return _ordersService.getAll();
     }
 
-    final appUser = await _usersService.resolveForAuthUser(
+    _currentUserProfile = await _usersService.resolveForAuthUser(
       authUserId: user.id,
       email: user.email,
     );
-    if (appUser?.id == null) return const [];
+    if (_currentUserProfile?.id == null) return const [];
 
-    return _ordersService.getAllForUser(appUser!.id!);
+    return _ordersService.getAllForUser(_currentUserProfile!.id!);
   }
 
   Future<void> _reload() async {
@@ -133,7 +135,8 @@ class _OrdersTabState extends State<OrdersTab> {
     if (_searchQuery.isNotEmpty) {
       filtered = filtered.where((o) {
         final id = o.id?.toString().toLowerCase() ?? '';
-        final address = o.deliveryAddress?.toLowerCase() ?? '';
+        final address = (o.deliveryAddress ?? _currentUserProfile?.adresse ?? '')
+            .toLowerCase();
         final price = o.totalPrice?.toString() ?? '';
         final query = _searchQuery.toLowerCase();
         return id.contains(query) ||
@@ -618,6 +621,47 @@ class _OrdersTabState extends State<OrdersTab> {
                             ),
                             const SizedBox(height: 12),
                           ],
+                          if (o.desiredDeliveryDate != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF55D80F).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 16,
+                                    color: Color(0xFF55D80F),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Date de livraison',
+                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            color: const Color(0xFF55D80F),
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          "${_formatDate(o.desiredDeliveryDate!)}${o.deliverySlot != null ? ', ${o.deliverySlot}' : ''}",
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           Row(
                             children: [
                               Expanded(
@@ -631,9 +675,11 @@ class _OrdersTabState extends State<OrdersTab> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        o.deliveryAddress?.isNotEmpty == true
-                                            ? o.deliveryAddress!
-                                            : 'Adresse non spécifiée',
+                                        (o.deliveryAddress?.isNotEmpty == true
+                                                ? o.deliveryAddress!
+                                                : _currentUserProfile
+                                                        ?.adresse ??
+                                                    'Adresse non spécifiée'),
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodyMedium

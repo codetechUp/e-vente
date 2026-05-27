@@ -7,6 +7,9 @@ import '../products_management_view.dart';
 import '../promotions_management_view.dart';
 import '../stock_entries_history_view.dart';
 import '../users_management_view.dart';
+import '../delivery_settings_management_view.dart';
+import '../commercials_management_view.dart';
+import '../audios_management_view.dart';
 
 class ManagementTab extends StatelessWidget {
   const ManagementTab({super.key});
@@ -133,6 +136,48 @@ class ManagementTab extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => StockEntriesHistoryView(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuCard(
+                title: 'Planning livraison',
+                subtitle: 'Gérer les jours et heures de livraison',
+                icon: Icons.calendar_month_outlined,
+                color: const Color(0xFF3B82F6),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DeliverySettingsManagementView(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuCard(
+                title: 'Suivi Commerciaux',
+                subtitle: 'Suivre les parrainages et commissions',
+                icon: Icons.assignment_ind_outlined,
+                color: const Color(0xFF8B5CF6),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CommercialsManagementView(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuCard(
+                title: 'Audios de diffusion',
+                subtitle: 'Gérer les annonces audio de la boutique',
+                icon: Icons.volume_up_outlined,
+                color: const Color(0xFF10B981),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AudiosManagementView(),
                     ),
                   );
                 },

@@ -27,6 +27,8 @@ class _PreparateurOrdersViewState extends State<PreparateurOrdersView>
   List<AppUserModel> _livreurs = [];
   bool _loading = true;
   late TabController _tabController;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
   static const _tabs = ['En attente', 'En préparation', 'Prêt'];
   static const _statuses = ['pending', 'preparing', 'ready'];
@@ -40,6 +42,7 @@ class _PreparateurOrdersViewState extends State<PreparateurOrdersView>
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -78,8 +81,23 @@ class _PreparateurOrdersViewState extends State<PreparateurOrdersView>
     }
   }
 
-  List<OrderModel> _filteredOrders(String status) =>
-      _orders.where((o) => o.status == status).toList();
+  List<OrderModel> _filteredOrders(String status) {
+    var filtered = _orders.where((o) => o.status == status).toList();
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((o) {
+        final id = o.id?.toString().toLowerCase() ?? '';
+        final client = (o.userName ?? o.userNom ?? o.userEmail ?? '').toLowerCase();
+        final phone = (o.userPhone ?? '').toLowerCase();
+        final address = (o.deliveryAddress ?? '').toLowerCase();
+        return id.contains(query) ||
+            client.contains(query) ||
+            phone.contains(query) ||
+            address.contains(query);
+      }).toList();
+    }
+    return filtered;
+  }
 
   Future<void> _updateStatus(OrderModel order, String newStatus) async {
     if (order.id == null) return;
@@ -125,7 +143,7 @@ class _PreparateurOrdersViewState extends State<PreparateurOrdersView>
                           alpha: 0.15,
                         ),
                         child: Text(
-                          (l.name ?? l.email)[0].toUpperCase(),
+                          l.avatarLetter,
                           style: const TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
@@ -225,20 +243,78 @@ class _PreparateurOrdersViewState extends State<PreparateurOrdersView>
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: _statuses
-                  .map(
-                    (s) => _OrderList(
-                      orders: _filteredOrders(s),
-                      status: s,
-                      livreurs: _livreurs,
-                      onUpdateStatus: _updateStatus,
-                      onAssignLivreur: _assignLivreur,
-                      loadItems: _loadItems,
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
                     ),
-                  )
-                  .toList(),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border, width: 1.5),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.search,
+                          color: AppColors.mutedText,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              hintText: 'Rechercher par client, adresse, commande...',
+                              border: InputBorder.none,
+                              isDense: true,
+                            ),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            onChanged: (val) {
+                              setState(() {
+                                _searchQuery = val;
+                              });
+                            },
+                          ),
+                        ),
+                        if (_searchQuery.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() {
+                                _searchQuery = '';
+                              });
+                            },
+                            constraints: const BoxConstraints(),
+                            padding: EdgeInsets.zero,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: _statuses
+                        .map(
+                          (s) => _OrderList(
+                            orders: _filteredOrders(s),
+                            status: s,
+                            livreurs: _livreurs,
+                            onUpdateStatus: _updateStatus,
+                            onAssignLivreur: _assignLivreur,
+                            loadItems: _loadItems,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ),
+              ],
             ),
     );
   }
@@ -415,23 +491,36 @@ class _OrderCard extends StatelessWidget {
                 ],
               ),
             if (desiredDate != null)
-              Row(
-                children: [
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 12,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(width: 2),
-                  Text(
-                    'Livraison le ${desiredDate.day.toString().padLeft(2, '0')}/${desiredDate.month.toString().padLeft(2, '0')}/${desiredDate.year}',
-                    style: const TextStyle(
-                      fontSize: 12,
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.event_available_outlined,
+                      size: 12,
                       color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        'Livraison: ${desiredDate.day.toString().padLeft(2, '0')}/${desiredDate.month.toString().padLeft(2, '0')}/${desiredDate.year}${order.deliverySlot != null ? ' · ${order.deliverySlot}' : ''}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             Row(
               children: [

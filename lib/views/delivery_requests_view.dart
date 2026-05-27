@@ -7,13 +7,25 @@ import '../services/notification_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 
-class DeliveryRequestsView extends StatelessWidget {
+class DeliveryRequestsView extends StatefulWidget {
   const DeliveryRequestsView({super.key});
 
-  Future<void> _acceptDelivery(
-    BuildContext context,
-    DeliveryModel delivery,
-  ) async {
+  @override
+  State<DeliveryRequestsView> createState() => _DeliveryRequestsViewState();
+}
+
+class _DeliveryRequestsViewState extends State<DeliveryRequestsView> {
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearching = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _acceptDelivery(DeliveryModel delivery) async {
     try {
       await context.read<DeliveriesProvider>().acceptDelivery(delivery);
       if (delivery.orderId != null) {
@@ -24,12 +36,12 @@ class DeliveryRequestsView extends StatelessWidget {
         );
       }
 
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Livraison acceptée')));
     } catch (e) {
-      if (!context.mounted) return;
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
@@ -39,24 +51,70 @@ class DeliveryRequestsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<DeliveriesProvider>();
-    final deliveries = provider.pendingRequests;
     final loading = provider.loading;
+    var deliveries = provider.pendingRequests;
+
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      deliveries = deliveries.where((d) {
+        final id = d.orderId?.toString().toLowerCase() ?? '';
+        final address = (d.deliveryAddress ?? '').toLowerCase();
+        final clientName = (d.customerName ?? '').toLowerCase();
+        final items = (d.orderItems ?? []).map((e) {
+          final p = e['products'] as Map?;
+          return (p?['name'] as String? ?? '').toLowerCase();
+        }).join(' ');
+        return id.contains(query) ||
+            address.contains(query) ||
+            clientName.contains(query) ||
+            items.contains(query);
+      }).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Demandes de livraison',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher une demande...',
+                  border: InputBorder.none,
+                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              )
+            : const Text(
+                'Demandes de livraison',
+                style: TextStyle(fontWeight: FontWeight.w900),
+              ),
         backgroundColor: AppColors.brandSurface,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () {
-              // TODO: Implement search
-            },
-          ),
+          if (_isSearching)
+            IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = '';
+                  _isSearching = false;
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () {
+                setState(() {
+                  _isSearching = true;
+                });
+              },
+            ),
         ],
       ),
       body: loading
@@ -82,7 +140,9 @@ class DeliveryRequestsView extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Les nouvelles demandes de livraison apparaîtront ici.',
+                          _searchQuery.isNotEmpty
+                              ? 'Aucune demande ne correspond à votre recherche.'
+                              : 'Les nouvelles demandes de livraison apparaîtront ici.',
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
@@ -99,7 +159,7 @@ class DeliveryRequestsView extends StatelessWidget {
                         final d = deliveries[index];
                         return _DeliveryRequestCard(
                           delivery: d,
-                          onAccept: () => _acceptDelivery(context, d),
+                          onAccept: () => _acceptDelivery(d),
                         );
                       },
                     ),

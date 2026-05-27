@@ -45,6 +45,11 @@ class CartProvider extends ChangeNotifier {
     return _itemsByProductId.containsKey(id);
   }
 
+  int getProductQuantity(int? productId) {
+    if (productId == null) return 0;
+    return _itemsByProductId[productId]?.quantity ?? 0;
+  }
+
   void add(ProductModel product, {int quantity = 1, double? effectivePrice}) {
     final id = product.id;
     if (id == null) return;
@@ -68,6 +73,25 @@ class CartProvider extends ChangeNotifier {
   }
 
   void increment(ProductModel product) => add(product, quantity: 1);
+
+  void setQuantity(ProductModel product, int quantity, {double? effectivePrice}) {
+    final id = product.id;
+    if (id == null) return;
+
+    if (quantity <= 0) {
+      _itemsByProductId.remove(id);
+    } else {
+      final price = effectivePrice ?? product.price;
+      final existing = _itemsByProductId[id];
+      _itemsByProductId[id] = CartItem(
+        product: product,
+        quantity: quantity,
+        effectivePrice: existing?.effectivePrice ?? price,
+      );
+    }
+
+    notifyListeners();
+  }
 
   void decrement(ProductModel product) {
     final id = product.id;

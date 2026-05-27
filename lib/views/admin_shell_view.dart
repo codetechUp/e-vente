@@ -7,6 +7,7 @@ import '../providers/orders_provider.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/styled_bottom_nav.dart';
+import '../widgets/web_sidebar.dart';
 import 'tabs/management_tab.dart';
 import 'tabs/orders_tab.dart';
 import 'tabs/role_dashboard_tab.dart';
@@ -27,10 +28,67 @@ class _AdminShellViewState extends State<AdminShellView> {
     ManagementTab(),
   ];
 
+  List<SidebarItem> _buildSidebarItems(BuildContext context) {
+    final pendingCount = context.watch<OrdersProvider>().pendingOrdersCount;
+    return [
+      const SidebarItem(
+        icon: Icons.dashboard_outlined,
+        activeIcon: Icons.dashboard,
+        label: 'Dashboard',
+      ),
+      SidebarItem(
+        icon: Icons.local_shipping_outlined,
+        activeIcon: Icons.local_shipping,
+        label: 'Commandes',
+        badge: pendingCount > 0 ? Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          decoration: BoxDecoration(
+            color: AppColors.danger,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            pendingCount.toString(),
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ) : null,
+      ),
+      const SidebarItem(
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings,
+        label: 'Gestion',
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = Supabase.instance.client.auth.currentUser;
+    final isDesktop = MediaQuery.of(context).size.width > 800;
+
+    if (isDesktop) {
+      final sidebarItems = _buildSidebarItems(context);
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Row(
+          children: [
+            WebSidebar(
+              currentIndex: _currentIndex,
+              items: sidebarItems,
+              onTap: (i) => setState(() => _currentIndex = i),
+              onLogout: () => auth.logout(),
+              userName: user?.userMetadata?['name'] as String? ?? 'Administrateur',
+              userEmail: user?.email ?? '',
+              roleName: auth.roleName ?? 'Administrateur',
+              avatarLetter: user?.avatarLetter ?? '?',
+            ),
+            Expanded(
+              child: IndexedStack(index: _currentIndex, children: _pages),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -50,7 +108,7 @@ class _AdminShellViewState extends State<AdminShellView> {
                       radius: 32,
                       backgroundColor: AppColors.accent.withValues(alpha: 0.18),
                       child: Text(
-                        (user?.email ?? '?')[0].toUpperCase(),
+                        user?.avatarLetter ?? '?',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.w900,

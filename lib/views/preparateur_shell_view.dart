@@ -47,7 +47,7 @@ class _PreparateurShellViewState extends State<PreparateurShellView> {
                       backgroundColor:
                           AppColors.primary.withValues(alpha: 0.18),
                       child: Text(
-                        (user?.email ?? '?')[0].toUpperCase(),
+                        user?.avatarLetter ?? '?',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.w900,

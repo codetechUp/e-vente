@@ -83,6 +83,16 @@ class OrderTrackingView extends StatelessWidget {
                     ),
                   ),
                 ],
+                if (order.desiredDeliveryDate != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    "Livraison prévue le ${order.desiredDeliveryDate!.day}/${order.desiredDeliveryDate!.month}/${order.desiredDeliveryDate!.year}${order.deliverySlot != null ? ' (${order.deliverySlot})' : ''}",
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: const Color(0xFF55D80F),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

@@ -19,11 +19,20 @@ class _DeliveriesTabState extends State<DeliveriesTab> {
   final _usersService = AppUsersService();
 
   late Future<List<DeliveryModel>> _future;
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+  String? _selectedStatusFilter;
 
   @override
   void initState() {
     super.initState();
     _future = _load();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<List<DeliveryModel>> _load() async {
@@ -122,7 +131,33 @@ class _DeliveriesTabState extends State<DeliveriesTab> {
             );
           }
 
-          final deliveries = snapshot.data ?? [];
+          final allDeliveries = snapshot.data ?? [];
+          var deliveries = allDeliveries;
+
+          // Filter by status
+          if (_selectedStatusFilter != null) {
+            deliveries = deliveries
+                .where((d) => d.status == _selectedStatusFilter)
+                .toList();
+          }
+
+          // Filter by search query
+          if (_searchQuery.isNotEmpty) {
+            final query = _searchQuery.toLowerCase();
+            deliveries = deliveries.where((d) {
+              final id = d.orderId?.toString().toLowerCase() ?? '';
+              final address = (d.deliveryAddress ?? '').toLowerCase();
+              final clientName = (d.customerName ?? '').toLowerCase();
+              final items = (d.orderItems ?? []).map((e) {
+                final p = e['products'] as Map?;
+                return (p?['name'] as String? ?? '').toLowerCase();
+              }).join(' ');
+              return id.contains(query) ||
+                  address.contains(query) ||
+                  clientName.contains(query) ||
+                  items.contains(query);
+            }).toList();
+          }
 
           return Column(
             children: [
@@ -168,6 +203,100 @@ class _DeliveriesTabState extends State<DeliveriesTab> {
                       onPressed: _reload,
                       icon: const Icon(Icons.refresh),
                       color: Colors.white,
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border, width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.search,
+                        color: AppColors.mutedText,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: const InputDecoration(
+                            hintText: 'Rechercher une livraison...',
+                            border: InputBorder.none,
+                            isDense: true,
+                          ),
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          onChanged: (val) {
+                            setState(() {
+                              _searchQuery = val;
+                            });
+                          },
+                        ),
+                      ),
+                      if (_searchQuery.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          },
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Row(
+                  children: [
+                    _FilterChip(
+                      label: 'Tous',
+                      count: allDeliveries.length,
+                      isSelected: _selectedStatusFilter == null,
+                      onTap: () {
+                        setState(() {
+                          _selectedStatusFilter = null;
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'En cours',
+                      count: allDeliveries.where((d) => d.status == 'shipped').length,
+                      isSelected: _selectedStatusFilter == 'shipped',
+                      color: Colors.blue,
+                      onTap: () {
+                        setState(() {
+                          _selectedStatusFilter = 'shipped';
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    _FilterChip(
+                      label: 'Livrées',
+                      count: allDeliveries.where((d) => d.status == 'delivered').length,
+                      isSelected: _selectedStatusFilter == 'delivered',
+                      color: AppColors.success,
+                      onTap: () {
+                        setState(() {
+                          _selectedStatusFilter = 'delivered';
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -474,6 +603,81 @@ class _DeliveryTile extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _FilterChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool isSelected;
+  final Color? color;
+  final VoidCallback onTap;
+
+  const _FilterChip({
+    required this.label,
+    required this.count,
+    required this.isSelected,
+    this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final chipColor = color ?? AppColors.accent;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? chipColor : AppColors.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? chipColor : AppColors.border,
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: chipColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: isSelected ? Colors.white : AppColors.text,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.2)
+                    : AppColors.border,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                count.toString(),
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: isSelected ? Colors.white : AppColors.text,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

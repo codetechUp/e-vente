@@ -27,7 +27,7 @@ class DeliveriesService {
             delivery_address, 
             total_price,
             user_id,
-            users!orders_user_id_fkey(name, phone, email),
+            users!orders_user_id_fkey(name, phone, email, latitude, longitude),
             order_items(
               id,
               quantity,
@@ -52,6 +52,8 @@ class DeliveriesService {
         'customer_name': userData?['name'] as String?,
         'customer_phone': userData?['phone'] as String?,
         'customer_email': userData?['email'] as String?,
+        'customer_latitude': userData?['latitude'],
+        'customer_longitude': userData?['longitude'],
       });
     }).toList();
   }

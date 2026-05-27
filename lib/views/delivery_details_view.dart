@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/delivery_model.dart';
 import '../providers/deliveries_provider.dart';
@@ -31,6 +32,52 @@ class DeliveryDetailsView extends StatelessWidget {
           backgroundColor: AppColors.danger,
         ),
       );
+    }
+  }
+
+  Future<void> _openClientLocation(BuildContext context) async {
+    Uri url;
+    final lat = delivery.customerLatitude;
+    final lng = delivery.customerLongitude;
+    if (lat != null && lng != null) {
+      url = Uri.parse(
+        'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+      );
+    } else if (delivery.deliveryAddress?.trim().isNotEmpty == true) {
+      final query = Uri.encodeComponent(delivery.deliveryAddress!);
+      url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune adresse ou coordonnée de livraison disponible.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d\'ouvrir l\'application de cartes.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur : $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
     }
   }
 
@@ -171,7 +218,57 @@ class DeliveryDetailsView extends StatelessWidget {
                     label: 'Adresse de livraison',
                     value: delivery.deliveryAddress!,
                   ),
+                  const SizedBox(height: 16),
                 ],
+                Builder(
+                  builder: (context) {
+                    final hasCoordinates = delivery.customerLatitude != null && delivery.customerLongitude != null;
+                    final hasAddress = delivery.deliveryAddress?.trim().isNotEmpty == true;
+
+                    if (hasCoordinates || hasAddress) {
+                      return SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _openClientLocation(context),
+                          icon: const Icon(Icons.map_outlined, size: 18),
+                          label: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text('Localiser le client'),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (hasCoordinates ? AppColors.success : Colors.orange).withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  hasCoordinates ? 'GPS' : 'Adresse',
+                                  style: TextStyle(
+                                    color: hasCoordinates ? AppColors.success : Colors.orange,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
+                      );
+                    } else {
+                      return const Text(
+                        'Aucune localisation disponible (ni adresse, ni GPS)',
+                        style: TextStyle(fontSize: 12, color: AppColors.danger, fontStyle: FontStyle.italic),
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ),

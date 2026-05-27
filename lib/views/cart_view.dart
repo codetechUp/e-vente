@@ -13,6 +13,8 @@ import '../services/order_items_service.dart';
 import '../services/orders_service.dart';
 import '../services/notification_service.dart';
 import '../services/stocks_service.dart';
+import '../services/delivery_settings_service.dart';
+import '../models/delivery_setting_model.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/app_button.dart';
@@ -31,14 +33,29 @@ class _CartViewState extends State<CartView> {
   final _orderItemsService = OrderItemsService();
   final _usersService = AppUsersService();
   final _stocksService = StocksService();
+  final _deliverySettingsService = DeliverySettingsService();
 
   bool _loading = false;
+  late Future<AppUserModel?> _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _userFuture = _loadUser();
+  }
+
+  Future<AppUserModel?> _loadUser() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return null;
+    return _usersService.resolveForAuthUser(
+      authUserId: user.id,
+      email: user.email,
+    );
+  }
 
   Future<Map<String, dynamic>?> _askDeliveryInfo() async {
-    final addressController = TextEditingController();
-    final now = DateTime.now();
-    final isLate = now.hour >= 23;
-    String? selectedSlot; // 'demain' or 'apres-demain'
+    String? selectedSlot;
+    bool showSlotError = false;
 
     final result = await showDialog<Map<String, dynamic>?>(
       context: context,
@@ -124,55 +141,100 @@ class _CartViewState extends State<CartView> {
                     ),
                     const SizedBox(height: 16),
 
-                    // --- Heure Livraison Préférée ---
-                    const Text(
-                      'Heure Livraison Préférée',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14,
-                      ),
+                    // --- Créneau de livraison (obligatoire) ---
+                    Row(
+                      children: [
+                        const Text(
+                          'Créneau de livraison',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '*',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Si une option n'apparaît pas, la capacité de Gros divers est déjà atteinte",
+                      "Sélectionnez le jour et l'heure de votre livraison",
                       style: TextStyle(
                         fontSize: 11,
                         color: Colors.grey.shade500,
                       ),
                     ),
+                    if (showSlotError) ...[  
+                      const SizedBox(height: 6),
+                      const Text(
+                        '⚠ Veuillez sélectionner un créneau de livraison',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.red,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
 
-                    // Option Demain (seulement si heure < 23h)
-                    if (!isLate)
-                      _DeliverySlotOption(
-                        label: 'Demain (8h-19h)',
-                        selected: selectedSlot == 'demain',
-                        onTap: () => setStateDialog(() => selectedSlot = 'demain'),
-                      ),
-                    // Option Après-Demain
-                    _DeliverySlotOption(
-                      label: 'Après-Demain (8h-19h)',
-                      selected: selectedSlot == 'apres-demain',
-                      onTap: () => setStateDialog(() => selectedSlot = 'apres-demain'),
+                    FutureBuilder<List<DeliverySettingModel>>(
+                      future: _deliverySettingsService.getActiveSettings(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final settings = snapshot.data ?? [];
+                        if (settings.isEmpty) {
+                          return const Text('Aucun créneau disponible');
+                        }
+
+                        // Générer les options pour les 7 prochains jours
+                        final options = <Widget>[];
+                        final now = DateTime.now();
+
+                        for (int i = 1; i <= 7; i++) {
+                          final date = now.add(Duration(days: i));
+                          final dayIndex = date.weekday; // 1=Lundi, 7=Dimanche
+                          final setting = settings.firstWhere(
+                            (s) => s.dayIndex == dayIndex,
+                            orElse: () => DeliverySettingModel(
+                              day: '',
+                              dayIndex: -1,
+                              timeSlots: [],
+                              isActive: false,
+                            ),
+                          );
+
+                          if (setting.isActive) {
+                            final dateStr =
+                                "${date.day}/${date.month}/${date.year}";
+                            for (final slot in setting.timeSlots) {
+                              final label = "${setting.day} ($dateStr) - $slot";
+                              final value = "$dateStr|$slot";
+                              options.add(
+                                _DeliverySlotOption(
+                                  label: label,
+                                  selected: selectedSlot == value,
+                                  onTap: () =>
+                                      setStateDialog(() => selectedSlot = value),
+                                ),
+                              );
+                            }
+                          }
+                        }
+
+                        return Column(children: options);
+                      },
                     ),
                     const SizedBox(height: 14),
 
-                    // --- Adresse de livraison ---
-                    const Text(
-                      'Adresse de livraison',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: addressController,
-                      decoration: const InputDecoration(
-                        hintText: 'Ex: Dakar, Grand Mbao, Rue 12',
-                      ),
-                      textInputAction: TextInputAction.done,
-                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
@@ -182,10 +244,20 @@ class _CartViewState extends State<CartView> {
                   child: const Text('Annuler'),
                 ),
                 FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop({
-                    'address': addressController.text.trim(),
-                    'slot': selectedSlot,
-                  }),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: selectedSlot != null
+                        ? AppColors.primary
+                        : Colors.grey.shade300,
+                  ),
+                  onPressed: () {
+                    if (selectedSlot == null) {
+                      setStateDialog(() => showSlotError = true);
+                      return;
+                    }
+                    Navigator.of(ctx).pop({
+                      'slot': selectedSlot,
+                    });
+                  },
                   child: const Text('Confirmer'),
                 ),
               ],
@@ -236,19 +308,31 @@ class _CartViewState extends State<CartView> {
     if (!mounted) return;
     if (deliveryInfo == null) return;
 
-    final address = deliveryInfo['address'] as String?;
     final slot = deliveryInfo['slot'] as String?;
+    // Safety guard: créneau obligatoire
+    if (slot == null || slot.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠ Veuillez sélectionner un créneau de livraison pour continuer.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-    // Calculer la date de livraison à partir du créneau choisi
+    final address = appUser?.adresse;
+
     DateTime? desiredDate;
-    if (slot != null) {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      if (slot == 'demain') {
-        desiredDate = today.add(const Duration(days: 1));
-      } else if (slot == 'apres-demain') {
-        desiredDate = today.add(const Duration(days: 2));
-      }
+    String? deliverySlot;
+    if (slot.contains('|')) {
+      final parts = slot.split('|');
+      final dateParts = parts[0].split('/');
+      deliverySlot = parts[1];
+      desiredDate = DateTime(
+        int.parse(dateParts[2]),
+        int.parse(dateParts[1]),
+        int.parse(dateParts[0]),
+      );
     }
 
     setState(() => _loading = true);
@@ -261,6 +345,7 @@ class _CartViewState extends State<CartView> {
           totalPrice: cart.totalPrice,
           deliveryAddress: (address?.isEmpty ?? true) ? null : address,
           desiredDeliveryDate: desiredDate,
+          deliverySlot: deliverySlot,
         ),
       );
 
@@ -321,6 +406,44 @@ class _CartViewState extends State<CartView> {
     }
   }
 
+  void _confirmClearCart() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text(
+          'Vider le panier ?',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
+        content: const Text(
+          'Voulez-vous vraiment retirer tous les produits du panier ?',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              context.read<CartProvider>().clear();
+              Navigator.of(ctx).pop();
+            },
+            child: const Text(
+              'Vider',
+              style: TextStyle(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _ensureUserRow(User user) async {
     try {
       final existing = await _usersService.resolveForAuthUser(
@@ -368,9 +491,10 @@ class _CartViewState extends State<CartView> {
         backgroundColor: AppColors.background,
         elevation: 0,
         actions: [
-          TextButton(
-            onPressed: cart.totalItems == 0 ? null : cart.clear,
-            child: const Text('Vider'),
+          IconButton(
+            onPressed: cart.totalItems == 0 ? null : _confirmClearCart,
+            icon: const Icon(Icons.delete_sweep_outlined, color: AppColors.danger),
+            tooltip: 'Vider le panier',
           ),
         ],
       ),
@@ -559,6 +683,44 @@ class _CartViewState extends State<CartView> {
                       ],
                     ),
                     const SizedBox(height: 10),
+                    FutureBuilder<AppUserModel?>(
+                      future: _userFuture,
+                      builder: (context, snapshot) {
+                        final address = snapshot.data?.adresse;
+                        if (address == null || address.trim().isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Adresse de livraison :',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  color: AppColors.text,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  address,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: AppColors.mutedText,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
                     AppButton(
                       label: 'Passer la commande',
                       loading: _loading,
@@ -623,12 +785,14 @@ class _DeliverySlotOption extends StatelessWidget {
                     : null,
               ),
               const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: selected ? AppColors.accent : Colors.black87,
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: selected ? AppColors.accent : Colors.black87,
+                  ),
                 ),
               ),
             ],

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/app_user_model.dart';
 import '../services/app_users_service.dart';
+import '../services/location_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
 import '../widgets/app_button.dart';
@@ -27,7 +30,11 @@ class _ProfileViewState extends State<ProfileView> {
   AppUserModel? _profile;
   String? _error;
 
-  String get _authUserId => Supabase.instance.client.auth.currentUser?.id ?? '';
+  double? _profileLatitude;
+  double? _profileLongitude;
+  bool _gpsLoading = false;
+
+
   String get _authEmail =>
       Supabase.instance.client.auth.currentUser?.email ?? '';
 
@@ -52,15 +59,42 @@ class _ProfileViewState extends State<ProfileView> {
     });
 
     try {
-      final id = _authUserId;
+      final authUser = Supabase.instance.client.auth.currentUser;
+      final id = authUser?.id ?? '';
       if (id.isEmpty) {
         throw StateError('Utilisateur non connecté');
       }
 
-      final userRow = await _usersService.resolveForAuthUser(
+      // Chercher d'abord par l'ID auth, puis par email
+      AppUserModel? userRow = await _usersService.resolveForAuthUser(
         authUserId: id,
         email: _authEmail,
       );
+
+      // Fallback : chercher par numéro de téléphone (connexion OTP - compte pré-inscrit)
+      if (userRow == null) {
+        final rawPhone = authUser?.phone ?? '';
+        if (rawPhone.isNotEmpty) {
+          userRow = await _usersService.getByPhone(rawPhone);
+          
+          // Si on trouve le compte pré-inscrit, on le lie à l'ID auth actuel
+          if (userRow != null && userRow.id != id) {
+            if (kDebugMode) {
+              debugPrint('[ProfileView] Linking pre-registered user ${userRow.id} → auth $id');
+            }
+            try {
+              // Supprimer le doublon créé par le trigger si existant
+              final dup = await _usersService.getById(id);
+              if (dup != null) await _usersService.deleteById(id);
+              // Mettre à jour l'ID du compte pré-inscrit vers le nouvel ID auth
+              await _usersService.updateById(userRow.id!, {'id': id});
+              userRow = await _usersService.getById(id);
+            } catch (e) {
+              if (kDebugMode) debugPrint('[ProfileView] Link error: $e');
+            }
+          }
+        }
+      }
 
       if (userRow == null) {
         throw StateError('Profil introuvable dans la table users');
@@ -70,6 +104,8 @@ class _ProfileViewState extends State<ProfileView> {
       _name.text = (userRow.name ?? userRow.nom ?? '').trim();
       _phone.text = (userRow.phone ?? '').trim();
       _adresse.text = (userRow.adresse ?? '').trim();
+      _profileLatitude = userRow.latitude;
+      _profileLongitude = userRow.longitude;
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -103,6 +139,8 @@ class _ProfileViewState extends State<ProfileView> {
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
         'adresse': _adresse.text.trim().isEmpty ? null : _adresse.text.trim(),
         'nom': cleanedName.isEmpty ? null : cleanedName,
+        'latitude': _profileLatitude,
+        'longitude': _profileLongitude,
       });
       await _load();
 
@@ -294,6 +332,52 @@ class _ProfileViewState extends State<ProfileView> {
                           hint: 'Adresse complète',
                           prefixIcon: const Icon(Icons.location_on_outlined),
                         ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Position GPS',
+                                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    (_profileLatitude != null && _profileLongitude != null)
+                                        ? '${_profileLatitude!.toStringAsFixed(6)}, ${_profileLongitude!.toStringAsFixed(6)}'
+                                        : 'Aucune position GPS enregistrée',
+                                    style: TextStyle(
+                                      color: (_profileLatitude != null) ? AppColors.brandGreenDark : AppColors.mutedText,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _gpsLoading
+                                ? const SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(strokeWidth: 2.5),
+                                  )
+                                : IconButton.filled(
+                                    onPressed: _captureGPSLocation,
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: AppColors.brandGreen.withValues(alpha: 0.12),
+                                      foregroundColor: AppColors.brandGreenDark,
+                                    ),
+                                    icon: const Icon(Icons.my_location),
+                                    tooltip: 'Détecter ma position GPS',
+                                  ),
+                          ],
+                        ),
                         const SizedBox(height: 20),
                         AppButton(
                           label: 'Enregistrer les modifications',
@@ -303,9 +387,123 @@ class _ProfileViewState extends State<ProfileView> {
                       ],
                     ),
                   ),
+                  if (_profile != null) ...[
+                    const SizedBox(height: 20),
+                    _buildQrCodeCard(context),
+                  ],
                 ],
               ),
             ),
+    );
+  }
+
+  Future<void> _captureGPSLocation() async {
+    setState(() => _gpsLoading = true);
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (pos != null) {
+        setState(() {
+          _profileLatitude = pos.latitude;
+          _profileLongitude = pos.longitude;
+        });
+        
+        final addr = await LocationService.getAddressFromCoordinates(pos.latitude, pos.longitude);
+        if (addr != null && addr.isNotEmpty) {
+          setState(() {
+            _adresse.text = addr;
+          });
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Impossible d’obtenir votre position GPS. Veuillez vérifier vos permissions.'),
+              backgroundColor: AppColors.danger,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('Error in _captureGPSLocation: $e');
+    } finally {
+      if (mounted) setState(() => _gpsLoading = false);
+    }
+  }
+
+  Widget _buildQrCodeCard(BuildContext context) {
+    if (_profile?.id == null) return const SizedBox.shrink();
+    
+    return Container(
+      padding: const EdgeInsets.all(AppSizes.paddingLg),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+        ],
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Ma Carte Client QR',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Présentez ce QR Code pour vous identifier auprès d\'un commercial.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.mutedText,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.brandGreen.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                  ),
+                ],
+                border: Border.all(color: AppColors.brandGreen.withValues(alpha: 0.3), width: 1.5),
+              ),
+              child: QrImageView(
+                data: _profile!.id!,
+                version: QrVersions.auto,
+                size: 180.0,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: AppColors.brandGreenDark,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: AppColors.brandGreenDark,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'ID: ${_profile!.id}',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: AppColors.mutedText,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

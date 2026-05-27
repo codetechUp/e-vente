@@ -75,12 +75,6 @@ class _CatalogTabState extends State<CatalogTab> {
     );
   }
 
-  Future<void> _reload() async {
-    setState(() {
-      _future = _load();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -270,20 +264,13 @@ class _CatalogTabState extends State<CatalogTab> {
                                 ),
                               ),
                             )
-                          : GridView.builder(
+                          : ListView.builder(
                               padding: const EdgeInsets.fromLTRB(
                                 0,
                                 0,
                                 AppSizes.padding,
                                 110,
                               ),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    mainAxisSpacing: 12,
-                                    crossAxisSpacing: 12,
-                                    childAspectRatio: 0.65,
-                                  ),
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
                                 final p = filtered[index];
@@ -405,16 +392,16 @@ class _CategoryChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(16),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
           decoration: BoxDecoration(
-            color: active ? AppColors.surface : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
+            color: active ? Colors.white : const Color(0xFFF5F7FA),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: active ? AppColors.accent : AppColors.border,
+              color: active ? AppColors.accent : AppColors.border.withValues(alpha: 0.8),
               width: active ? 2 : 1,
             ),
             boxShadow: active
@@ -488,207 +475,162 @@ class _CatalogProductCard extends StatelessWidget {
         .where((item) => item.product.id == product.id)
         .fold<int>(0, (sum, item) => sum + item.quantity);
 
-    // No points
-
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border.withValues(alpha: 0.8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // Image section
-          Expanded(
-            child: Stack(
-              children: [
-                Container(
-                  margin: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: (product.imageUrl ?? '').trim().isEmpty
-                        ? const Center(
+          // Image on the left
+          Stack(
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: (product.imageUrl ?? '').trim().isEmpty
+                      ? const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            size: 36,
+                            color: AppColors.mutedText,
+                          ),
+                        )
+                      : Image.network(
+                          product.imageUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (_, __, ___) => const Center(
                             child: Icon(
-                              Icons.image_outlined,
-                              size: 48,
+                              Icons.broken_image_outlined,
+                              size: 36,
                               color: AppColors.mutedText,
                             ),
-                          )
-                        : Image.network(
-                            product.imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(
-                                Icons.broken_image_outlined,
-                                size: 48,
-                                color: AppColors.mutedText,
-                              ),
-                            ),
                           ),
-                  ),
+                        ),
                 ),
-                if (hasPromo)
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF3B30), Color(0xFFFF6B6B)],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFFF3B30,
-                            ).withValues(alpha: 0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '-$discountPercent%',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 11,
-                        ),
+              ),
+              if (hasPromo)
+                Positioned(
+                  top: 4,
+                  left: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '-$discountPercent%',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
-          // Info section
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          const SizedBox(width: 16),
+          // Product details on the right
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Product name
+                // Title
                 Text(
                   product.name,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    height: 1.3,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
                     color: AppColors.text,
                   ),
                 ),
                 const SizedBox(height: 6),
                 // Price
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    if (hasPromo) ...[
-                      Text(
-                        '${_formatPrice(discountedPrice)} F',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                            ),
+                    Text(
+                      '${_formatPrice(discountedPrice)} F',
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                      const SizedBox(height: 2),
+                    ),
+                    if (hasPromo)
                       Text(
                         '${_formatPrice(product.price)} F',
-                        style: Theme.of(context)
-                            .textTheme
-                            .labelSmall
-                            ?.copyWith(
-                              decoration: TextDecoration.lineThrough,
-                              color: AppColors.mutedText,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 11,
-                            ),
-                      ),
-                    ] else
-                      Text(
-                        '${_formatPrice(product.price)} F',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(
-                              color: AppColors.accent,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 14,
-                            ),
+                        style: const TextStyle(
+                          decoration: TextDecoration.lineThrough,
+                          color: AppColors.mutedText,
+                          fontSize: 12,
+                        ),
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Quantity counter
+                // Quantity Selector: minus, count, plus
                 Row(
                   children: [
-                    if (quantity > 0) ...[
-                      InkWell(
-                        onTap: () => cart.decrement(product),
-                        borderRadius: BorderRadius.circular(16),
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.accent.withValues(alpha: 0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.remove,
-                            color: Colors.white,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 2,
-                        ),
+                    // Minus button (always visible, disabled if quantity == 0)
+                    InkWell(
+                      onTap: quantity > 0 ? () => cart.decrement(product) : null,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          '$quantity',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: quantity > 0 
+                                ? AppColors.border 
+                                : AppColors.border.withValues(alpha: 0.5),
                           ),
                         ),
+                        child: Icon(
+                          Icons.remove,
+                          color: quantity > 0 ? AppColors.mutedText : AppColors.mutedText.withValues(alpha: 0.3),
+                          size: 16,
+                        ),
                       ),
-                      const SizedBox(width: 6),
-                    ],
+                    ),
+                    const SizedBox(width: 8),
+                    // Quantity count
+                    Text(
+                      '$quantity',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: quantity > 0 ? AppColors.text : AppColors.mutedText,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Plus button
                     InkWell(
                       onTap: () {
                         cart.add(
@@ -696,20 +638,13 @@ class _CatalogProductCard extends StatelessWidget {
                           effectivePrice: hasPromo ? discountedPrice : null,
                         );
                       },
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        width: 30,
-                        height: 30,
+                        width: 32,
+                        height: 32,
                         decoration: BoxDecoration(
-                          color: AppColors.accent,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.accent.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
                           Icons.add,

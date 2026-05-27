@@ -51,7 +51,7 @@ class _DeliveryPersonShellViewState extends State<DeliveryPersonShellView> {
                       radius: 32,
                       backgroundColor: AppColors.accent.withValues(alpha: 0.18),
                       child: Text(
-                        (user?.email ?? '?')[0].toUpperCase(),
+                        user?.avatarLetter ?? '?',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.w900,

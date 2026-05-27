@@ -336,7 +336,10 @@ class _StockEntriesHistoryViewState extends State<StockEntriesHistoryView> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Row(
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(
@@ -355,7 +358,6 @@ class _StockEntriesHistoryViewState extends State<StockEntriesHistoryView> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
                                   Text(
                                     entry.createdAt != null
                                         ? DateFormat('dd MMM yyyy, HH:mm', 'fr_FR').format(entry.createdAt!)

@@ -5,8 +5,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/category_model.dart';
 import '../models/product_model.dart';
+import '../models/promotion_model.dart';
 import '../services/categories_service.dart';
 import '../services/products_service.dart';
+import '../services/promotions_service.dart';
 import '../services/storage_service.dart';
 import '../utils/constants/app_colors.dart';
 import '../utils/constants/app_sizes.dart';
@@ -40,12 +42,15 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
         switch ((value ?? '').trim().toLowerCase()) {
           case '1':
           case 'premium':
+          case 'vedette':
             return 0;
           case '2':
           case 'silver':
+          case 'promo':
             return 1;
           case '3':
           case 'gold':
+          case 'retour_stock':
             return 2;
           default:
             return 3;
@@ -76,7 +81,7 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
         categories: categories,
         initial: null,
         onSubmit: (payload) async {
-          await _productsService.create(payload);
+          return await _productsService.create(payload);
         },
       ),
     );
@@ -100,8 +105,8 @@ class _ProductsManagementViewState extends State<ProductsManagementView> {
         categories: categories,
         initial: product,
         onSubmit: (payload) async {
-          if (product.id == null) return;
-          await _productsService.updateById(product.id!, {
+          if (product.id == null) return null;
+          return await _productsService.updateById(product.id!, {
             'name': payload.name,
             'description': payload.description,
             'price': payload.price,
@@ -321,15 +326,15 @@ class _ProductTile extends StatelessWidget {
     final grille = (product.grille ?? '').trim().toLowerCase();
     String? grilleLabel;
     Color? grilleColor;
-    if (grille == '1' || grille == 'premium') {
-      grilleLabel = 'Premium';
+    if (grille == '1' || grille == 'premium' || grille == 'vedette') {
+      grilleLabel = 'Produit vedette';
       grilleColor = const Color(0xFF6C4DFF);
-    } else if (grille == '2' || grille == 'silver') {
-      grilleLabel = 'Silver';
-      grilleColor = const Color(0xFF5A84F7);
-    } else if (grille == '3' || grille == 'gold') {
-      grilleLabel = 'Gold';
-      grilleColor = const Color(0xFFEF9F2F);
+    } else if (grille == '2' || grille == 'silver' || grille == 'promo') {
+      grilleLabel = 'En promotion';
+      grilleColor = const Color(0xFFFF6B6B);
+    } else if (grille == '3' || grille == 'gold' || grille == 'retour_stock') {
+      grilleLabel = 'Retour en stock';
+      grilleColor = const Color(0xFF4FACFE);
     }
 
     return Container(
@@ -438,7 +443,10 @@ class _ProductTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       '${product.price.toStringAsFixed(0)} F',
@@ -447,7 +455,6 @@ class _ProductTile extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(width: 12),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -511,7 +518,7 @@ class _ProductSheet extends StatefulWidget {
   final String primaryCta;
   final List<CategoryModel> categories;
   final ProductModel? initial;
-  final Future<void> Function(ProductModel payload) onSubmit;
+   final Future<ProductModel?> Function(ProductModel payload) onSubmit;
 
   const _ProductSheet({
     required this.title,
@@ -530,6 +537,7 @@ class _ProductSheetState extends State<_ProductSheet> {
   late final TextEditingController _name;
   late final TextEditingController _description;
   late final TextEditingController _price;
+  late final TextEditingController _discount;
 
   CategoryModel? _category;
   String? _grille;
@@ -541,6 +549,8 @@ class _ProductSheetState extends State<_ProductSheet> {
 
   final _picker = ImagePicker();
   final _storage = StorageService();
+  final _promotionsService = PromotionsService();
+  PromotionModel? _existingPromo;
 
   @override
   void initState() {
@@ -552,9 +562,25 @@ class _ProductSheetState extends State<_ProductSheet> {
     _price = TextEditingController(
       text: widget.initial == null ? '' : widget.initial!.price.toString(),
     );
+    _discount = TextEditingController();
 
     _imageUrl = widget.initial?.imageUrl;
     _grille = widget.initial?.grille;
+
+    // Normalisation des anciennes valeurs pour l'affichage interne
+    if (_grille != null) {
+      final g = _grille!.toLowerCase().trim();
+      if (g == 'premium' || g == '1' || g == 'vedette') {
+        _grille = '1';
+      } else if (g == 'silver' || g == '2' || g == 'promo') {
+        _grille = '2';
+      } else if (g == 'gold' || g == '3' || g == 'retour_stock') {
+        _grille = '3';
+      } else {
+        _grille = null;
+      }
+    }
+
     _display = widget.initial?.display ?? true;
 
     _category = widget.categories.firstWhere(
@@ -566,6 +592,26 @@ class _ProductSheetState extends State<_ProductSheet> {
     if (_category?.id == null) {
       _category = null;
     }
+    _loadPromotion();
+  }
+
+  Future<void> _loadPromotion() async {
+    if (widget.initial?.id == null) return;
+    try {
+      final promos = await _promotionsService.getAll();
+      final promo = promos.firstWhere(
+        (p) => p.productId == widget.initial!.id && p.isActive,
+        orElse: () => const PromotionModel(),
+      );
+      if (promo.id != null) {
+        setState(() {
+          _existingPromo = promo;
+          _discount.text = promo.discountPercent?.toString() ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading promo: $e');
+    }
   }
 
   @override
@@ -573,6 +619,7 @@ class _ProductSheetState extends State<_ProductSheet> {
     _name.dispose();
     _description.dispose();
     _price.dispose();
+    _discount.dispose();
     super.dispose();
   }
 
@@ -587,6 +634,15 @@ class _ProductSheetState extends State<_ProductSheet> {
     if (v.isEmpty) return 'Prix obligatoire';
     final p = double.tryParse(v.replaceAll(',', '.'));
     if (p == null || p < 0) return 'Prix invalide';
+    return null;
+  }
+
+  String? _discountValidator(String? value) {
+    if (_grille != 'promo') return null;
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return 'Pourcentage obligatoire';
+    final p = int.tryParse(v);
+    if (p == null || p < 1 || p > 99) return 'Entre 1 et 99%';
     return null;
   }
 
@@ -629,7 +685,31 @@ class _ProductSheetState extends State<_ProductSheet> {
         display: _display,
       );
 
-      await widget.onSubmit(payload);
+      final createdOrUpdated = await widget.onSubmit(payload);
+      final productId = createdOrUpdated?.id ?? widget.initial?.id;
+
+      // Handle Promotion
+      if (_grille == '2') {
+        final disc = int.parse(_discount.text.trim());
+        if (_existingPromo != null) {
+          await _promotionsService.updateById(_existingPromo!.id!, {
+            'discount_percent': disc,
+            'is_active': true,
+          });
+        } else if (productId != null) {
+          // It's an update or newly created, create promo
+          await _promotionsService.create(PromotionModel(
+            productId: productId,
+            discountPercent: disc,
+            isActive: true,
+          ));
+        }
+      } else if (_existingPromo != null) {
+        // Was promo, but no longer. Disable it.
+        await _promotionsService.updateById(_existingPromo!.id!, {
+          'is_active': false,
+        });
+      }
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
@@ -814,22 +894,33 @@ class _ProductSheetState extends State<_ProductSheet> {
                         child: Text('Aucune'),
                       ),
                       DropdownMenuItem<String?>(
-                        value: 'premium',
-                        child: Text('Premium (ou 1)'),
+                        value: '1',
+                        child: Text('Produit vedette'),
                       ),
                       DropdownMenuItem<String?>(
-                        value: 'silver',
-                        child: Text('Silver (ou 2)'),
+                        value: '2',
+                        child: Text('En promotion'),
                       ),
                       DropdownMenuItem<String?>(
-                        value: 'gold',
-                        child: Text('Gold (ou 3)'),
+                        value: '3',
+                        child: Text('Retour en stock'),
                       ),
                     ],
                     onChanged: (value) => setState(() => _grille = value),
                   ),
                 ),
               ),
+              if (_grille == '2') ...[
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: _discount,
+                  label: 'Remise (%)',
+                  hint: 'Ex: 20',
+                  keyboardType: TextInputType.number,
+                  validator: _discountValidator,
+                  prefixIcon: const Icon(Icons.percent),
+                ),
+              ],
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(

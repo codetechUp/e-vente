@@ -126,29 +126,32 @@ class ProductCard extends StatelessWidget {
         children: [
           Stack(
             children: [
-              Container(
-                height: 160,
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+              Hero(
+                tag: 'product-img-$title',
+                child: Container(
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                    image: imageUrl != null
+                        ? DecorationImage(
+                            image: NetworkImage(imageUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  image: imageUrl != null
-                      ? DecorationImage(
-                          image: NetworkImage(imageUrl!),
-                          fit: BoxFit.cover,
+                  child: imageUrl == null
+                      ? const Center(
+                          child: Icon(
+                            Icons.image_outlined,
+                            size: 48,
+                            color: AppColors.mutedText,
+                          ),
                         )
                       : null,
                 ),
-                child: imageUrl == null
-                    ? const Center(
-                        child: Icon(
-                          Icons.image_outlined,
-                          size: 48,
-                          color: AppColors.mutedText,
-                        ),
-                      )
-                    : null,
               ),
               if (badge != null)
                 Positioned(

@@ -71,6 +71,45 @@ class StorageService {
     }
   }
 
+  Future<String> uploadAudioFile({
+    required String fileName,
+    required Uint8List bytes,
+    String bucket = 'audios',
+  }) async {
+    final extension = _extFromPath(fileName);
+    final contentType = _audioContentTypeFromExt(extension);
+
+    final finalFileName =
+        'audio_${DateTime.now().millisecondsSinceEpoch}_${_rand(6)}.$extension';
+    final path = 'files/$finalFileName';
+
+    await _uploadBinary(
+      bucket: bucket,
+      path: path,
+      bytes: bytes,
+      contentType: contentType,
+    );
+
+    return _client.storage.from(bucket).getPublicUrl(path);
+  }
+
+  String _audioContentTypeFromExt(String ext) {
+    switch (ext.toLowerCase()) {
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'm4a':
+        return 'audio/x-m4a';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+        return 'audio/ogg';
+      case 'aac':
+        return 'audio/aac';
+      default:
+        return 'audio/mpeg';
+    }
+  }
+
   String _rand(int len) {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
     final r = Random.secure();

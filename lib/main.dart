@@ -11,6 +11,7 @@ import 'providers/counter_provider.dart';
 import 'providers/deliveries_provider.dart';
 import 'providers/expenses_provider.dart';
 import 'providers/orders_provider.dart';
+import 'providers/catalog_provider.dart';
 import 'routes/app_router.dart';
 import 'services/notification_service.dart';
 import 'utils/constants/app_colors.dart';
@@ -47,6 +48,7 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (_) => DeliveriesProvider()),
         ChangeNotifierProvider(create: (_) => ExpensesProvider()),
         ChangeNotifierProvider(create: (_) => OrdersProvider()),
+        ChangeNotifierProvider(create: (_) => CatalogProvider()),
       ],
       child: const MyApp(),
     ),

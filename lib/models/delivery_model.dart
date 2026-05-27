@@ -10,6 +10,8 @@ class DeliveryModel {
   final String? customerName;
   final String? customerPhone;
   final String? customerEmail;
+  final double? customerLatitude;
+  final double? customerLongitude;
 
   const DeliveryModel({
     this.id,
@@ -23,6 +25,8 @@ class DeliveryModel {
     this.customerName,
     this.customerPhone,
     this.customerEmail,
+    this.customerLatitude,
+    this.customerLongitude,
   });
 
   factory DeliveryModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +37,9 @@ class DeliveryModel {
           .map((e) => e as Map<String, dynamic>)
           .toList();
     }
+
+    final latVal = json['customer_latitude'];
+    final lngVal = json['customer_longitude'];
 
     return DeliveryModel(
       id: json['id'] as int?,
@@ -48,6 +55,8 @@ class DeliveryModel {
       customerName: json['customer_name'] as String?,
       customerPhone: json['customer_phone'] as String?,
       customerEmail: json['customer_email'] as String?,
+      customerLatitude: latVal == null ? null : (latVal as num).toDouble(),
+      customerLongitude: lngVal == null ? null : (lngVal as num).toDouble(),
     );
   }
 
