@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -22,7 +23,14 @@ import 'views/auth_gate.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: '.env');
+  // Sur mobile, ou sur le web en mode debug (développement local), on charge depuis le fichier .env
+  if (!kIsWeb || kDebugMode) {
+    try {
+      await dotenv.load(fileName: '.env');
+    } catch (e) {
+      debugPrint('Note: Impossible de charger le fichier .env ($e)');
+    }
+  }
 
   // Initialiser les données de formatage de dates pour le français
   await initializeDateFormatting('fr_FR', null);

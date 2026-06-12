@@ -47,6 +47,22 @@ class _DeliveryPersonShellViewState extends State<DeliveryPersonShellView> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Logo
+                    Center(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        height: 70,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.storefront,
+                          size: 48,
+                          color: AppColors.brandGreen,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1, color: AppColors.border),
+                    const SizedBox(height: 12),
                     CircleAvatar(
                       radius: 32,
                       backgroundColor: AppColors.accent.withValues(alpha: 0.18),

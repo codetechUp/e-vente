@@ -131,7 +131,7 @@ class _UsersManagementViewState extends State<UsersManagementView> {
   }
 
   bool _isPending(AppUserModel u) {
-    return u.email.endsWith('@gros-divers.sn') && (u.name == null || u.name!.isEmpty || u.id!.length > 30);
+    return u.email.endsWith('@gros-divers.sn') && (u.name == null || u.name!.isEmpty || (u.id?.length ?? 0) > 30);
   }
 
   List<AppUserModel> _filterUsers(List<AppUserModel> users, List<RoleModel> roles) {
@@ -287,7 +287,7 @@ class _UsersManagementViewState extends State<UsersManagementView> {
                   curve: Curves.easeInOut,
                   child: SingleChildScrollView(
                     child: Container(
-                      height: MediaQuery.of(context).size.height - AppBar().preferredSize.height - 30,
+                      height: MediaQuery.of(context).size.height - kToolbarHeight - 30,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border(left: BorderSide(color: AppColors.border, width: 1.5)),
@@ -455,7 +455,7 @@ class _UsersManagementViewState extends State<UsersManagementView> {
                 ElevatedButton.icon(
                   onPressed: () => _openAddUser(roles, true),
                   icon: const Icon(LucideIcons.plus, size: 18),
-                  label: const Text('Ajouter Client', style: TextStyle(fontWeight: FontWeight.w700)),
+                  label: const Text('Ajouter Utilisateur', style: TextStyle(fontWeight: FontWeight.w700)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.brandGreen,
                     foregroundColor: Colors.white,
@@ -564,75 +564,149 @@ class _UsersManagementViewState extends State<UsersManagementView> {
         boxShadow: AppColors.cardShadow,
       ),
       clipBehavior: Clip.antiAlias,
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(AppColors.background),
-        dataRowHeight: 68,
-        columnSpacing: 20,
-        showCheckboxColumn: false,
-        columns: const [
-          DataColumn(label: Text('Nom / Contact', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-          DataColumn(label: Text('Téléphone', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-          DataColumn(label: Text('E-mail', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-          DataColumn(label: Text('Rôle', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-          DataColumn(label: Text('Statut', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-          DataColumn(label: Text('Action', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSecondary))),
-        ],
-        rows: users.map((u) {
-          final isPendingUser = _isPending(u);
-          final roleName = u.roleId == null ? 'Client' : (rolesById[u.roleId!]?.name ?? 'Client');
-          final active = u.isActive;
-          
-          return DataRow(
-            onSelectChanged: (_) => _openEditUser(u, roles, true),
-            cells: [
-              DataCell(
-                Row(
-                  children: [
-                    _Avatar(user: u, isPending: isPendingUser),
-                    const SizedBox(width: 12),
-                    Expanded(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 580),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(AppColors.background),
+            dataRowMinHeight: 60,
+            dataRowMaxHeight: 72,
+            columnSpacing: 28,
+            horizontalMargin: 20,
+            showCheckboxColumn: false,
+            headingTextStyle: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              letterSpacing: 0.4,
+            ),
+            columns: const [
+              DataColumn(label: Text('NOM / CONTACT')),
+              DataColumn(label: Text('TÉLÉPHONE')),
+              DataColumn(label: Text('E-MAIL')),
+              DataColumn(label: Text('ADRESSE')),
+              DataColumn(label: Text('RÔLE')),
+              DataColumn(label: Text('STATUT')),
+              DataColumn(label: Text('ACTIONS')),
+            ],
+            rows: users.map((u) {
+              final isPendingUser = _isPending(u);
+              final roleName = u.roleId == null ? 'Client' : (rolesById[u.roleId!]?.name ?? 'Client');
+              final active = u.isActive;
+              
+              return DataRow(
+                color: WidgetStateProperty.resolveWith<Color?>((states) {
+                  if (states.contains(WidgetState.hovered)) {
+                    return AppColors.brandGreen.withValues(alpha: 0.04);
+                  }
+                  return null;
+                }),
+                onSelectChanged: (_) => _openEditUser(u, roles, true),
+                cells: [
+                  // Name + Avatar
+                  DataCell(
+                    SizedBox(
+                      width: 200,
+                      child: Row(
+                        children: [
+                          _Avatar(user: u, isPending: isPendingUser),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  (u.name != null && u.name!.trim().isNotEmpty)
+                                      ? u.name!
+                                      : (u.nom ?? 'Sans nom'),
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                if (isPendingUser) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Pré-enregistré',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange.shade700, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  // Phone
+                  DataCell(
+                    SizedBox(
+                      width: 130,
                       child: Text(
-                        (u.name != null && u.name!.trim().isNotEmpty) ? u.name! : (u.nom ?? 'Sans nom'),
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                        u.phone ?? '-',
+                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              DataCell(Text(u.phone ?? '-', style: const TextStyle(fontWeight: FontWeight.w500))),
-              DataCell(
-                Text(
-                  isPendingUser ? '-' : u.email,
-                  style: TextStyle(
-                    color: isPendingUser ? AppColors.textLight : AppColors.text,
-                    fontStyle: isPendingUser ? FontStyle.italic : FontStyle.normal,
-                    fontSize: 13,
                   ),
-                ),
-              ),
-              DataCell(_RoleBadge(roleName: roleName)),
-              DataCell(_StatusBadge(isActive: active, isPending: isPendingUser)),
-              DataCell(
-                Row(
-                  children: [
-                    Switch(
-                      value: active,
-                      activeThumbColor: AppColors.accent,
-                      activeTrackColor: AppColors.accent.withValues(alpha: 0.35),
-                      onChanged: (v) => _toggleActive(u, v),
+                  // Email
+                  DataCell(
+                    SizedBox(
+                      width: 200,
+                      child: Text(
+                        isPendingUser ? '-' : u.email,
+                        style: TextStyle(
+                          color: isPendingUser ? AppColors.textLight : AppColors.text,
+                          fontStyle: isPendingUser ? FontStyle.italic : FontStyle.normal,
+                          fontSize: 13,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(LucideIcons.edit, size: 16),
-                      color: AppColors.mutedText,
-                      onPressed: () => _openEditUser(u, roles, true),
+                  ),
+                  // Address
+                  DataCell(
+                    SizedBox(
+                      width: 160,
+                      child: Text(
+                        u.adresse ?? '-',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        }).toList(),
+                  ),
+                  // Role
+                  DataCell(_RoleBadge(roleName: roleName)),
+                  // Status
+                  DataCell(_StatusBadge(isActive: active, isPending: isPendingUser)),
+                  // Actions
+                  DataCell(
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Switch(
+                          value: active,
+                          activeThumbColor: AppColors.accent,
+                          activeTrackColor: AppColors.accent.withValues(alpha: 0.35),
+                          onChanged: (v) => _toggleActive(u, v),
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.edit, size: 16),
+                          color: AppColors.mutedText,
+                          tooltip: 'Modifier',
+                          onPressed: () => _openEditUser(u, roles, true),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
       ),
     );
   }

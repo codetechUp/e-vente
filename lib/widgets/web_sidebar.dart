@@ -51,49 +51,44 @@ class WebSidebar extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header / Brand Logo
-          Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppColors.brandGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.storefront,
-                    color: AppColors.brandGreen,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(bottom: BorderSide(color: AppColors.border.withOpacity(0.5))),
+            ),
+            child: Center(
+              child: Image.asset(
+                'assets/images/logo.png',
+                height: 64,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.brandGreen.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(Icons.storefront, color: AppColors.brandGreen, size: 28),
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
                       'GROS DIVERS',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 1.2,
                         color: AppColors.text,
                       ),
                     ),
-                    Text(
-                      'Web Panel',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.mutedText,
-                      ),
-                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
-          const Divider(height: 1),
           const SizedBox(height: 16),
           // Navigation Items
           Expanded(

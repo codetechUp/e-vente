@@ -70,8 +70,6 @@ class _DiscoverTabState extends State<DiscoverTab> {
   final _searchController = TextEditingController();
 
   late Future<_DiscoverData> _future;
-  String? _userName;
-  String? _userPhone;
   String _searchQuery = '';
   int? _selectedCategoryId;
   bool _promosShown = false;
@@ -80,35 +78,12 @@ class _DiscoverTabState extends State<DiscoverTab> {
   void initState() {
     super.initState();
     _future = _load();
-    _loadUserInfo();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadUserInfo() async {
-    final userId = Supabase.instance.client.auth.currentUser?.id;
-    if (userId == null) return;
-
-    try {
-      final data = await Supabase.instance.client
-          .from('users')
-          .select('name, phone')
-          .eq('id', userId)
-          .maybeSingle();
-
-      if (mounted && data != null) {
-        setState(() {
-          _userName = data['name'] as String?;
-          _userPhone = data['phone'] as String?;
-        });
-      }
-    } catch (e) {
-      // Ignore
-    }
   }
 
   Future<_DiscoverData> _load() async {
@@ -390,26 +365,25 @@ class _DiscoverTabState extends State<DiscoverTab> {
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
                   Expanded(
-                    child: Column(
+                    child: const Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          _userName ?? 'Saliou Kane Diallo',
-                          style: const TextStyle(
+                          'Saliou Kane',
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-
                         Text(
-                          _userPhone ?? '+221 77 999 02 02',
-                          style: const TextStyle(
+                          '+221 77 999 02 02',
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
                           ),
                         ),
-                        const Text(
+                        Text(
                           'GRAND MBAO',
                           style: TextStyle(color: Colors.white, fontSize: 12),
                         ),

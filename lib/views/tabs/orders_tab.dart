@@ -194,16 +194,18 @@ class _OrdersTabState extends State<OrdersTab> {
                     color: AppColors.mutedText,
                     tooltip: 'Rafraîchir',
                   ),
-                  const SizedBox(width: 6),
-                  BadgeIconButton(
-                    icon: Icons.shopping_cart_outlined,
-                    badge: context.watch<CartProvider>().totalItems,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CartView()),
-                      );
-                    },
-                  ),
+                  if (context.watch<AuthProvider>().isClient) ...[
+                    const SizedBox(width: 6),
+                    BadgeIconButton(
+                      icon: Icons.shopping_cart_outlined,
+                      badge: context.watch<CartProvider>().totalItems,
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const CartView()),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
               const SizedBox(height: 16),

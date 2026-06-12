@@ -1,12 +1,12 @@
 {
-    "name": "e_vente",
-    "short_name": "e_vente",
+    "name": "Gros Divers Admin",
+    "short_name": "GD Admin",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#f8faf8",
+    "theme_color": "#16a34a",
+    "description": "Panneau d'administration Gros Divers - Gestion commandes, produits et utilisateurs.",
+    "orientation": "landscape-primary",
     "prefer_related_applications": false,
     "icons": [
         {
