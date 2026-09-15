@@ -17,14 +17,44 @@ import 'routes/app_router.dart';
 import 'services/notification_service.dart';
 import 'utils/constants/app_colors.dart';
 import 'utils/constants/app_strings.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';
 import 'utils/supabase_config.dart';
 import 'views/auth_gate.dart';
+
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (kDebugMode) {
+    print("Handling a background message: ${message.messageId}");
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Sur mobile, ou sur le web en mode debug (développement local), on charge depuis le fichier .env
-  if (!kIsWeb || kDebugMode) {
+  // Enregistrer le gestionnaire FCM en arrière-plan
+  if (!kIsWeb) {
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
+
+  // Initialiser Firebase pour Android et iOS
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } catch (e) {
+      debugPrint('Note: Impossible d\'initialiser Firebase ($e)');
+    }
+  }
+
+  // Sur le Web, le fichier .env NE DOIT PAS être chargé via dotenv.load
+  // car les serveurs web retournent HTTP 403 Forbidden pour assets/.env.
+  // SupabaseConfig utilise les valeurs de fallback intégrées par défaut.
+  if (!kIsWeb) {
     try {
       await dotenv.load(fileName: '.env');
     } catch (e) {
@@ -34,7 +64,12 @@ Future<void> main() async {
 
   // Initialiser les données de formatage de dates pour le français
   await initializeDateFormatting('fr_FR', null);
-  await NotificationService().init();
+  
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint('Note: Impossible d\'initialiser NotificationService ($e)');
+  }
 
   if (SupabaseConfig.url.isEmpty || SupabaseConfig.anonKey.isEmpty) {
     throw StateError(

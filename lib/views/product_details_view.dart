@@ -21,13 +21,11 @@ class ProductDetailsView extends StatefulWidget {
 class _ProductDetailsViewState extends State<ProductDetailsView> {
   final _productsService = ProductsService();
   late Future<List<ProductModel>> _similarProductsFuture;
-  int _quantity = 0;
 
   @override
   void initState() {
     super.initState();
     _similarProductsFuture = _loadSimilarProducts();
-    _quantity = context.read<CartProvider>().getProductQuantity(widget.product.id);
   }
 
   Future<List<ProductModel>> _loadSimilarProducts() async {
@@ -235,7 +233,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomBar(context),
     );
   }
 
@@ -343,6 +340,9 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
   }
 
   Widget _buildProductInfo(BuildContext context) {
+    final cart = context.watch<CartProvider>();
+    final cartQty = cart.getProductQuantity(widget.product.id);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -364,7 +364,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -379,14 +379,16 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
               Row(
                 children: [
                   InkWell(
-                    onTap: _quantity > 0
-                        ? () => setState(() => _quantity--)
+                    onTap: cartQty > 0
+                        ? () => cart.decrement(widget.product)
                         : null,
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
+                      decoration: BoxDecoration(
+                        color: cartQty > 0
+                            ? AppColors.primary
+                            : Colors.grey.shade300,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -407,7 +409,7 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '$_quantity',
+                      '$cartQty',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -416,12 +418,16 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
                   ),
                   const SizedBox(width: 12),
                   InkWell(
-                    onTap: () => setState(() => _quantity++),
+                    onTap: cartQty < widget.product.stock
+                        ? () => cart.increment(widget.product)
+                        : null,
                     child: Container(
                       width: 32,
                       height: 32,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
+                      decoration: BoxDecoration(
+                        color: cartQty < widget.product.stock
+                            ? AppColors.primary
+                            : Colors.grey.shade300,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -533,49 +539,6 @@ class _ProductDetailsViewState extends State<ProductDetailsView> {
     );
   }
 
-  Widget _buildBottomBar(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(
-          top: BorderSide(
-            color: Colors.grey.shade200,
-          ),
-        ),
-      ),
-      child: SafeArea(
-        child: ElevatedButton(
-          onPressed: () {
-            context.read<CartProvider>().setQuantity(widget.product, _quantity);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Panier mis à jour'),
-                backgroundColor: AppColors.success,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            backgroundColor: AppColors.primary,
-            elevation: 0,
-          ),
-          child: const Text(
-            'Ajouter au panier',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _SimilarProductCard extends StatelessWidget {

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:provider/provider.dart';
 
 import '../models/app_user_model.dart';
+import '../providers/auth_provider.dart';
 import '../services/app_users_service.dart';
 import '../services/location_service.dart';
 import '../utils/constants/app_colors.dart';
@@ -133,14 +135,16 @@ class _ProfileViewState extends State<ProfileView> {
 
     try {
       final cleanedName = _name.text.trim();
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final isClient = auth.isClient;
 
       await _usersService.updateById(profileId, {
         'name': _name.text.trim().isEmpty ? null : _name.text.trim(),
         'phone': _phone.text.trim().isEmpty ? null : _phone.text.trim(),
-        'adresse': _adresse.text.trim().isEmpty ? null : _adresse.text.trim(),
+        if (!isClient) 'adresse': _adresse.text.trim().isEmpty ? null : _adresse.text.trim(),
         'nom': cleanedName.isEmpty ? null : cleanedName,
-        'latitude': _profileLatitude,
-        'longitude': _profileLongitude,
+        if (!isClient) 'latitude': _profileLatitude,
+        if (!isClient) 'longitude': _profileLongitude,
       });
       await _load();
 
@@ -163,6 +167,8 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final isClient = auth.isClient;
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -331,6 +337,7 @@ class _ProfileViewState extends State<ProfileView> {
                           label: 'Adresse de livraison',
                           hint: 'Adresse complète',
                           prefixIcon: const Icon(Icons.location_on_outlined),
+                          enabled: !isClient,
                         ),
                         const SizedBox(height: 14),
                         Row(
@@ -360,22 +367,24 @@ class _ProfileViewState extends State<ProfileView> {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _gpsLoading
-                                ? const SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(strokeWidth: 2.5),
-                                  )
-                                : IconButton.filled(
-                                    onPressed: _captureGPSLocation,
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: AppColors.brandGreen.withValues(alpha: 0.12),
-                                      foregroundColor: AppColors.brandGreenDark,
+                            if (!isClient) ...[
+                              const SizedBox(width: 8),
+                              _gpsLoading
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                                    )
+                                  : IconButton.filled(
+                                      onPressed: _captureGPSLocation,
+                                      style: IconButton.styleFrom(
+                                        backgroundColor: AppColors.brandGreen.withValues(alpha: 0.12),
+                                        foregroundColor: AppColors.brandGreenDark,
+                                      ),
+                                      icon: const Icon(Icons.my_location),
+                                      tooltip: 'Détecter ma position GPS',
                                     ),
-                                    icon: const Icon(Icons.my_location),
-                                    tooltip: 'Détecter ma position GPS',
-                                  ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 20),

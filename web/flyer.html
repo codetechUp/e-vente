@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gros Divers - La Solution E-Commerce Complète & Intelligente</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1ED9D2;
+            --primary-dark: #0FC2DA;
+            --brand-green: #10B981;
+            --brand-green-dark: #047857;
+            --bg-dark: #0A0F1D;
+            --card-dark: #121829;
+            --text-light: #F3F4F6;
+            --text-muted: #9CA3AF;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --gradient-accent: linear-gradient(135deg, #1ED9D2 0%, #10B981 100%);
+            --shadow-premium: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* --- Header Section --- */
+        header {
+            padding: 40px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            background: var(--gradient-accent);
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 24px;
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px rgba(30, 217, 210, 0.4);
+        }
+
+        .logo-text {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: -0.5px;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .btn-print {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-print:hover {
+            background: var(--gradient-accent);
+            color: var(--bg-dark);
+            border-color: transparent;
+            box-shadow: 0 10px 20px rgba(30, 217, 210, 0.2);
+        }
+
+        /* --- Hero Section --- */
+        .hero {
+            padding: 80px 0 60px 0;
+            position: relative;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -100px;
+            right: -100px;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(30, 217, 210, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+            z-index: -1;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        @media (max-width: 968px) {
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+                text-align: center;
+            }
+        }
+
+        .tagline {
+            display: inline-block;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--brand-green);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .hero h1 {
+            font-size: 52px;
+            line-height: 1.15;
+            letter-spacing: -1px;
+            margin-bottom: 24px;
+        }
+
+        .hero h1 span {
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: var(--text-muted);
+            margin-bottom: 36px;
+            max-width: 600px;
+        }
+
+        @media (max-width: 968px) {
+            .hero p {
+                margin: 0 auto 36px auto;
+            }
+        }
+
+        .mockup-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .mockup-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 36px;
+            box-shadow: var(--shadow-premium), 0 0 60px rgba(16, 185, 129, 0.15);
+            transition: transform 0.5s ease;
+        }
+
+        .mockup-img:hover {
+            transform: scale(1.03);
+        }
+
+        /* --- Key Stats Section --- */
+        .stats-strip {
+            background: rgba(255, 255, 255, 0.02);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            padding: 40px 0;
+            margin-bottom: 60px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 32px;
+            }
+        }
+
+        .stat-item h3 {
+            font-size: 36px;
+            color: #FFF;
+            margin-bottom: 8px;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-item p {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* --- Features Section --- */
+        .features {
+            padding: 60px 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title h2 {
+            font-size: 38px;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .section-title p {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 968px) {
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 640px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .feature-card {
+            background: var(--card-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 32px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--gradient-accent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(30, 217, 210, 0.2);
+            box-shadow: var(--shadow-premium);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .icon-wrapper {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: rgba(30, 217, 210, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            color: var(--primary);
+        }
+
+        .feature-card h3 {
+            font-size: 20px;
+            margin-bottom: 12px;
+            color: #FFF;
+        }
+
+        .feature-card p {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* --- ROI Simulator (Interactive Feature) --- */
+        .simulator {
+            padding: 80px 0;
+            background: radial-gradient(100% 100% at 50% 0%, rgba(16, 185, 129, 0.06) 0%, rgba(0, 0, 0, 0) 100%);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            margin: 60px 0;
+        }
+
+        .sim-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        @media (max-width: 868px) {
+            .sim-grid {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+        }
+
+        .sim-input-box {
+            background: var(--card-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 28px;
+            padding: 40px;
+            box-shadow: var(--shadow-premium);
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-light);
+            margin-bottom: 10px;
+        }
+
+        .range-slider {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--brand-green);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            transition: transform 0.1s ease;
+        }
+
+        .range-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .slider-val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--brand-green);
+            float: right;
+            margin-top: -6px;
+        }
+
+        .sim-results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .result-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .result-val {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 900;
+            font-size: 28px;
+            color: #FFF;
+            margin-bottom: 6px;
+            background: var(--gradient-accent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .result-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        /* --- Footer Section --- */
+        footer {
+            padding: 60px 0 40px 0;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .footer-logo {
+            margin-bottom: 20px;
+        }
+
+        .footer-text {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            gap: 32px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 30px;
+        }
+
+        .contact-info a {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .contact-info a:hover {
+            color: var(--brand-green);
+        }
+
+        /* --- Print Styles --- */
+        @media print {
+            body {
+                background: #FFF;
+                color: #000;
+            }
+            .btn-print, .simulator, .hero::before {
+                display: none !important;
+            }
+            .feature-card {
+                background: #F9FAFB !important;
+                border: 1px solid #E5E7EB !important;
+                color: #000 !important;
+                break-inside: avoid;
+            }
+            .feature-card h3, .logo-text, .hero h1 span, .stat-item h3 {
+                color: #000 !important;
+                -webkit-text-fill-color: #000 !important;
+            }
+            .mockup-img {
+                box-shadow: none !important;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+            .stats-strip {
+                background: #F3F4F6 !important;
+                border-color: #E5E7EB !important;
+            }
+            .stat-item h3 {
+                font-size: 28px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- --- Header --- -->
+    <header>
+        <div class="container header-content">
+            <div class="logo-area">
+                <div class="logo-icon">GD</div>
+                <div class="logo-text">Gros Divers</div>
+            </div>
+            <button class="btn-print" onclick="window.print()">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1z"/>
+                    <path d="M5 1a2 2 0 0 0-2 2v2H2a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1v1a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-1h1a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1V3a2 2 0 0 0-2-2H5zM4 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2H4V3zm1 5a2 2 0 0 0-2 2v1H2a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v-1a2 2 0 0 0-2-2H5zm7 2v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1z"/>
+                </svg>
+                Imprimer le flyer / PDF
+            </button>
+        </div>
+    </header>
+
+    <!-- --- Hero Section --- -->
+    <section class="hero">
+        <div class="container hero-grid">
+            <div class="hero-text-area">
+                <span class="tagline">Écosystème E-Commerce Premium</span>
+                <h1>Propulsez vos Ventes en Gros avec <span>Gros Divers</span></h1>
+                <p>Une suite applicative sur mesure combinant une application d'achat pour vos clients, un centre de logistique pour vos livreurs et un panneau de pilotage analytique pour maximiser vos marges.</p>
+                <div class="logo-area" style="gap: 16px;">
+                    <span style="font-size: 14px; font-weight: 700; color: var(--brand-green); display: flex; align-items: center; gap: 8px;">
+                        <span style="display: inline-block; width: 8px; height: 8px; background: var(--brand-green); border-radius: 50%;"></span>
+                        B2B & B2C
+                    </span>
+                    <span style="font-size: 14px; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px;">
+                        <span style="display: inline-block; width: 8px; height: 8px; background: var(--primary); border-radius: 50%;"></span>
+                        iOS, Android & Web
+                    </span>
+                </div>
+            </div>
+            <div class="mockup-container">
+                <img src="assets/images/gros_divers_app_mockup.png" alt="Gros Divers App Mockup" class="mockup-img">
+            </div>
+        </div>
+    </section>
+
+    <!-- --- Stats Strip --- -->
+    <section class="stats-strip">
+        <div class="container stats-grid">
+            <div class="stat-item">
+                <h3>+35%</h3>
+                <p>De volume de commandes</p>
+            </div>
+            <div class="stat-item">
+                <h3>X2.5</h3>
+                <p>Vitesse de traitement logistique</p>
+            </div>
+            <div class="stat-item">
+                <h3>0%</h3>
+                <p>De rupture de stock non signalée</p>
+            </div>
+            <div class="stat-item">
+                <h3>100%</h3>
+                <p>Autonome & Temps Réel</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- --- Core Components / Features --- -->
+    <section class="features">
+        <div class="container">
+            <div class="section-title">
+                <h2>Un Écosystème Connecté & Intelligent</h2>
+                <p>Fini les canaux de vente dispersés. Gros Divers unifie votre business de la commande à la livraison à domicile.</p>
+            </div>
+            <div class="features-grid">
+                <!-- 1. Client App -->
+                <div class="feature-card">
+                    <div class="icon-wrapper">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                        </svg>
+                    </div>
+                    <h3>Application Client</h3>
+                    <p>Catalogue dynamique et structuré par catégories. Prise de commande simplifiée avec panier fluide, gestion du profil, suivi du statut en temps réel et notifications de réception.</p>
+                </div>
+                <!-- 2. Management & Financial Control Room -->
+                <div class="feature-card">
+                    <div class="icon-wrapper" style="color: #EC4899; background: rgba(236, 72, 153, 0.08);">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <line x1="18" y1="20" x2="18" y2="10"></line>
+                            <line x1="12" y1="20" x2="12" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="14"></line>
+                        </svg>
+                    </div>
+                    <h3>Tableau de Bord & Finances</h3>
+                    <p>Une interface admin poussée avec indicateurs de rentabilité (marge brute, coût d'achat global, profit potentiel, chiffre d'affaires cumulé) et filtres de dates avancés pour un suivi chirurgical.</p>
+                </div>
+                <!-- 3. Logistics Engine -->
+                <div class="feature-card">
+                    <div class="icon-wrapper" style="color: #F59E0B; background: rgba(245, 158, 11, 0.08);">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <rect x="1" y="3" width="15" height="13"></rect>
+                            <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+                            <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                            <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                        </svg>
+                    </div>
+                    <h3>Logistique & Livraisons</h3>
+                    <p>Attribution dynamique des commandes aux livreurs via le portail Préparateur. Paramétrage des créneaux de livraison et planification hebdomadaire sur mesure pour vos clients.</p>
+                </div>
+                <!-- 4. Marketing Broadcast (FCM) -->
+                <div class="feature-card">
+                    <div class="icon-wrapper" style="color: var(--brand-green); background: rgba(16, 185, 129, 0.08);">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                        </svg>
+                    </div>
+                    <h3>Diffusions Push Instantanées</h3>
+                    <p>Envoyez des alertes de retour en stock ou de promotions ciblées en 1 clic grâce aux modèles de diffusion pré-remplis couplés à Firebase Cloud Messaging (FCM) et aux fonctions Edge.</p>
+                </div>
+                <!-- 5. Referral & Commercial Network -->
+                <div class="feature-card">
+                    <div class="icon-wrapper" style="color: #8B5CF6; background: rgba(139, 92, 246, 0.08);">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <h3>Réseau Commerciaux & Parrainages</h3>
+                    <p>Recrutez des commerciaux affiliés directement sur la plateforme. Suivi automatique des commissions, du chiffre d'affaires apporté et des parrainages validés avec relevés transparents.</p>
+                </div>
+                <!-- 6. Smart Features -->
+                <div class="feature-card">
+                    <div class="icon-wrapper" style="color: #6366F1; background: rgba(99, 102, 241, 0.08);">
+                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            <rect x="7" y="7" width="3" height="3"></rect>
+                            <rect x="14" y="7" width="3" height="3"></rect>
+                            <rect x="7" y="14" width="3" height="3"></rect>
+                            <rect x="14" y="14" width="3" height="3"></rect>
+                        </svg>
+                    </div>
+                    <h3>Outils Intelligents</h3>
+                    <p>Scanneur de QR codes intégré pour le retrait rapide des commandes, lecteur d'annonces audio promotionnelles hors ligne, et interface de configuration de boutique modulable à la volée.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- --- ROI Simulator Section --- -->
+    <section class="simulator">
+        <div class="container">
+            <div class="section-title">
+                <h2>Simulateur d'Impact Business</h2>
+                <p>Estimez les gains directs de rentabilité et le temps libéré pour vos équipes en déployant Gros Divers.</p>
+            </div>
+            <div class="sim-grid">
+                <div class="sim-input-box">
+                    <div class="form-group">
+                        <label for="monthly-orders">Volume de commandes mensuelles
+                            <span id="orders-val" class="slider-val">150</span>
+                        </label>
+                        <input type="range" id="monthly-orders" class="range-slider" min="50" max="2000" step="50" value="150" oninput="calculateROI()">
+                    </div>
+                    <div class="form-group">
+                        <label for="avg-basket">Panier moyen par commande (F CFA)
+                            <span id="basket-val" class="slider-val">45 000</span>
+                        </label>
+                        <input type="range" id="avg-basket" class="range-slider" min="10000" max="300000" step="5000" value="45000" oninput="calculateROI()">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="teams-size">Nombre de livreurs / préparateurs
+                            <span id="teams-val" class="slider-val">3</span>
+                        </label>
+                        <input type="range" id="teams-size" class="range-slider" min="1" max="15" step="1" value="3" oninput="calculateROI()">
+                    </div>
+                </div>
+                <div class="sim-results">
+                    <div class="result-card">
+                        <div id="res-turnover" class="result-val">6 750 000 F</div>
+                        <div class="result-label">C.A Mensuel Estimé</div>
+                    </div>
+                    <div class="result-card">
+                        <div id="res-growth" class="result-val" style="color: var(--brand-green);">+1 012 500 F</div>
+                        <div class="result-label">Gain de C.A Potentiel (+15%)</div>
+                    </div>
+                    <div class="result-card">
+                        <div id="res-time" class="result-val" style="color: var(--primary);">24h</div>
+                        <div class="result-label">Temps Administratif Gagné / Mois</div>
+                    </div>
+                    <div class="result-card">
+                        <div id="res-errors" class="result-val" style="color: #F43F5E;">-95%</div>
+                        <div class="result-label">Réduction des retards & erreurs</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- --- Footer --- -->
+    <footer>
+        <div class="container">
+            <div class="footer-logo">
+                <span class="logo-text">Gros Divers E-Commerce Suite</span>
+            </div>
+            <p class="footer-text">Développé pour offrir aux commerçants et grossistes une infrastructure digitale premium et souveraine.</p>
+            <div class="contact-info">
+                <a href="mailto:contact@grosdivers.com">contact@grosdivers.com</a>
+                <span>•</span>
+                <a href="https://app.grosdivers.com" target="_blank">app.grosdivers.com</a>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); font-weight: 500;">&copy; 2026 Gros Divers. Tous droits réservés. Propulsé par Google Firebase & Supabase.</p>
+        </div>
+    </footer>
+
+    <script>
+        function calculateROI() {
+            const orders = parseInt(document.getElementById('monthly-orders').value);
+            const basket = parseInt(document.getElementById('avg-basket').value);
+            const teams = parseInt(document.getElementById('teams-size').value);
+
+            // Update slider display values
+            document.getElementById('orders-val').innerText = formatNumber(orders);
+            document.getElementById('basket-val').innerText = formatNumber(basket);
+            document.getElementById('teams-val').innerText = teams;
+
+            // Calculations
+            const monthlyCA = orders * basket;
+            const caGrowth = monthlyCA * 0.15; // 15% estimated growth from push alerts & easy catalog purchase
+            const timeSaved = Math.round(orders * 0.16); // 10 minutes saved per order (0.16 hours) in manual coordination
+
+            // Update UI elements
+            document.getElementById('res-turnover').innerText = formatPrice(monthlyCA);
+            document.getElementById('res-growth').innerText = '+' + formatPrice(caGrowth);
+            document.getElementById('res-time').innerText = timeSaved + 'h';
+        }
+
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+        }
+
+        function formatPrice(val) {
+            return formatNumber(val) + " F";
+        }
+
+        // Initialize calculations
+        calculateROI();
+    </script>
+</body>
+</html>

@@ -267,6 +267,41 @@ class _AudioBroadcastPlayerState extends State<AudioBroadcastPlayer> with Single
               ],
             ],
           ),
+          if (_selectedAudio!.imageUrl != null && _selectedAudio!.imageUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 21 / 9,
+                child: Image.network(
+                  _selectedAudio!.imageUrl!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.brandGreen,
+                          strokeWidth: 2,
+                        ),
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    child: const Center(
+                      child: Icon(
+                        LucideIcons.imageOff,
+                        color: Colors.white38,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
 
           // Player controls & progress slider

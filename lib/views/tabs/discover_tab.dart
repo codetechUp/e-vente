@@ -20,6 +20,8 @@ import '../../models/audio_model.dart';
 import '../../services/audios_service.dart';
 import '../../widgets/promo_notification_dialog.dart';
 import '../../widgets/audio_broadcast_player.dart';
+import '../../models/app_config_model.dart';
+import '../../services/app_config_service.dart';
 
 int _grillePriority(String? grille) {
   final value = (grille ?? '').trim().toLowerCase();
@@ -67,12 +69,14 @@ class _DiscoverTabState extends State<DiscoverTab> {
   final _productsService = ProductsService();
   final _categoriesService = CategoriesService();
   final _audiosService = AudiosService();
+  final _configService = AppConfigService();
   final _searchController = TextEditingController();
 
   late Future<_DiscoverData> _future;
   String _searchQuery = '';
   int? _selectedCategoryId;
   bool _promosShown = false;
+  AppConfigModel _config = const AppConfigModel();
 
   @override
   void initState() {
@@ -91,10 +95,15 @@ class _DiscoverTabState extends State<DiscoverTab> {
       _promotionsService.getAll(),
       _productsService.getAll(),
       _audiosService.getAll(),
+      _configService.getConfig(),
     ]);
     final promos = results[0] as List<PromotionModel>;
     final products = results[1] as List<ProductModel>;
     final audios = results[2] as List<AudioModel>;
+    final config = results[3] as AppConfigModel;
+
+    // Store config so the header/modal can use it
+    if (mounted) setState(() => _config = config);
 
     List<CategoryModel> categories;
     try {
@@ -124,7 +133,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
     final promoProducts = <_PromoProduct>[];
     for (final promo in activePromos) {
       final product = productMap[promo.productId];
-      if (product != null && product.display) {
+      // Only show product in promo section if it has stock
+      if (product != null && product.display && product.stock > 0) {
         promoProducts.add(_PromoProduct(promo: promo, product: product));
       }
     }
@@ -140,7 +150,7 @@ class _DiscoverTabState extends State<DiscoverTab> {
 
     final regularProducts = products
         .where(
-          (p) => p.display && !promoProducts.any((pp) => pp.product.id == p.id),
+          (p) => p.display && p.stock > 0 && !promoProducts.any((pp) => pp.product.id == p.id),
         )
         .toList();
     regularProducts.sort((a, b) {
@@ -181,8 +191,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
     });
   }
 
-  Future<void> _launchWhatsApp() async {
-    const phone = '+221779990202';
+  Future<void> _launchWhatsApp(String rawPhone) async {
+    final phone = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
     final whatsappApp = Uri.parse('whatsapp://send?phone=$phone');
     final whatsappWeb = Uri.parse('https://wa.me/$phone');
     if (await canLaunchUrl(whatsappApp)) {
@@ -192,8 +202,8 @@ class _DiscoverTabState extends State<DiscoverTab> {
     }
   }
 
-  Future<void> _launchCall() async {
-    const phone = '+221779990202';
+  Future<void> _launchCall(String rawPhone) async {
+    final phone = rawPhone.replaceAll(RegExp(r'[^\d+]'), '');
     final telUri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(telUri)) {
       await launchUrl(telUri, mode: LaunchMode.externalApplication);
@@ -201,6 +211,9 @@ class _DiscoverTabState extends State<DiscoverTab> {
   }
 
   void _showContactModal() {
+    final waNumbers = _config.whatsappNumbers;
+    final callNumbers = _config.callNumbers;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -208,10 +221,11 @@ class _DiscoverTabState extends State<DiscoverTab> {
       ),
       builder: (ctx) {
         return Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // Handle
               Container(
                 width: 40,
                 height: 4,
@@ -229,116 +243,62 @@ class _DiscoverTabState extends State<DiscoverTab> {
                 ),
               ),
               const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _launchWhatsApp();
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(0xFF25D366).withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF25D366),
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                LucideIcons.messageCircle,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'WhatsApp',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '+221 77 999 02 02',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+
+              // ── WhatsApp numbers ──────────────────────────────────────────
+              if (waNumbers.isNotEmpty) ...[
+                _ContactSectionLabel(
+                  icon: LucideIcons.messageCircle,
+                  color: const Color(0xFF25D366),
+                  label: 'WhatsApp',
+                ),
+                const SizedBox(height: 8),
+                ...waNumbers.map((phoneNum) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _ContactButton(
+                        label: phoneNum,
+                        color: const Color(0xFF25D366),
+                        icon: LucideIcons.messageCircle,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _launchWhatsApp(phoneNum);
+                        },
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _launchCall();
-                      },
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        decoration: BoxDecoration(
-                          color: AppColors.accent.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: AppColors.accent.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: AppColors.accent,
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              child: const Icon(
-                                Icons.call,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'Appeler',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '+221 77 999 02 02',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
+                    )),
+                const SizedBox(height: 12),
+              ],
+
+              // ── Call numbers ──────────────────────────────────────────────
+              if (callNumbers.isNotEmpty) ...[
+                _ContactSectionLabel(
+                  icon: Icons.call_outlined,
+                  color: AppColors.accent,
+                  label: 'Appel téléphonique',
+                ),
+                const SizedBox(height: 8),
+                ...callNumbers.map((phoneNum) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: _ContactButton(
+                        label: phoneNum,
+                        color: AppColors.accent,
+                        icon: Icons.call,
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _launchCall(phoneNum);
+                        },
                       ),
-                    ),
+                    )),
+              ],
+
+              // Fallback if nothing configured
+              if (waNumbers.isEmpty && callNumbers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'Aucun numéro de contact configuré.\nContactez l\'administrateur.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
+                ),
             ],
           ),
         );
@@ -365,28 +325,30 @@ class _DiscoverTabState extends State<DiscoverTab> {
                     onPressed: () => Scaffold.of(context).openDrawer(),
                   ),
                   Expanded(
-                    child: const Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Saliou Kane',
-                          style: TextStyle(
+                          _config.storeName.isNotEmpty ? _config.storeName : 'Ma Boutique',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        Text(
-                          '+221 77 999 02 02',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
+                        if (_config.displayPhone.isNotEmpty)
+                          Text(
+                            _config.displayPhone,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                            ),
                           ),
-                        ),
-                        Text(
-                          'GRAND MBAO',
-                          style: TextStyle(color: Colors.white, fontSize: 12),
-                        ),
+                        if (_config.location.isNotEmpty)
+                          Text(
+                            _config.location.toUpperCase(),
+                            style: const TextStyle(color: Colors.white, fontSize: 12),
+                          ),
                       ],
                     ),
                   ),
@@ -1283,6 +1245,96 @@ class _PromoProductCard extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTACT MODAL WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ContactSectionLabel extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  const _ContactSectionLabel({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: color,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ContactButton extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ContactButton({
+    required this.label,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.white, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: color,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.arrow_forward_ios_rounded, size: 14, color: color.withValues(alpha: 0.6)),
           ],
         ),
       ),

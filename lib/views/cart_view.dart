@@ -91,7 +91,7 @@ class _CartViewState extends State<CartView> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '> Commander avant 21h pour une livraison demain',
+                            '> Commander avant 22h pour une livraison demain (au-delà, livraison le surlendemain)',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade600,
@@ -197,8 +197,9 @@ class _CartViewState extends State<CartView> {
                         // Générer les options pour les 7 prochains jours
                         final options = <Widget>[];
                         final now = DateTime.now();
+                        final startDay = now.hour >= 22 ? 2 : 1;
 
-                        for (int i = 1; i <= 7; i++) {
+                        for (int i = startDay; i <= 7; i++) {
                           final date = now.add(Duration(days: i));
                           final dayIndex = date.weekday; // 1=Lundi, 7=Dimanche
                           final setting = settings.firstWhere(
@@ -530,205 +531,211 @@ class _CartViewState extends State<CartView> {
                 ),
               ),
             )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSizes.padding,
-                10,
-                AppSizes.padding,
-                140,
-              ),
+          : Column(
               children: [
-                ...cart.items.map(
-                  (item) => Stack(
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSizes.padding,
+                      10,
+                      AppSizes.padding,
+                      20,
+                    ),
                     children: [
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(AppSizes.radiusLg),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 34),
-                          child: Row(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(AppSizes.radius),
-                                child: Container(
-                                  width: 64,
-                                  height: 64,
-                                  color: AppColors.background,
-                                  child: (item.product.imageUrl ?? '').trim().isEmpty
-                                      ? const Icon(
-                                          Icons.image_outlined,
-                                          color: AppColors.mutedText,
-                                        )
-                                      : Image.network(
-                                          item.product.imageUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => const Icon(
-                                            Icons.broken_image_outlined,
-                                            color: AppColors.mutedText,
-                                          ),
-                                        ),
-                                ),
+                      ...cart.items.map(
+                        (item) => Stack(
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(AppSizes.radiusLg),
+                                border: Border.all(color: AppColors.border),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 34),
+                                child: Row(
                                   children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(AppSizes.radius),
+                                      child: Container(
+                                        width: 64,
+                                        height: 64,
+                                        color: AppColors.background,
+                                        child: (item.product.imageUrl ?? '').trim().isEmpty
+                                            ? const Icon(
+                                                Icons.image_outlined,
+                                                color: AppColors.mutedText,
+                                              )
+                                            : Image.network(
+                                                item.product.imageUrl!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => const Icon(
+                                                  Icons.broken_image_outlined,
+                                                  color: AppColors.mutedText,
+                                                ),
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.product.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.titleSmall
+                                                ?.copyWith(fontWeight: FontWeight.w900),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            '${item.effectivePrice.toStringAsFixed(0)} F',
+                                            style: Theme.of(context).textTheme.labelLarge
+                                                ?.copyWith(
+                                                  color: AppColors.accent,
+                                                  fontWeight: FontWeight.w900,
+                                                ),
+                                          ),
+                                          if (item.effectivePrice < item.product.price)
+                                            Text(
+                                              '${item.product.price.toStringAsFixed(0)} F',
+                                              style: Theme.of(context).textTheme.labelSmall
+                                                  ?.copyWith(
+                                                    decoration: TextDecoration.lineThrough,
+                                                    color: AppColors.mutedText,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      onPressed: () => cart.decrement(item.product),
+                                      icon: const Icon(Icons.remove_circle_outline),
+                                    ),
                                     Text(
-                                      item.product.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                      '${item.quantity}',
                                       style: Theme.of(context).textTheme.titleSmall
                                           ?.copyWith(fontWeight: FontWeight.w900),
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '${item.effectivePrice.toStringAsFixed(0)} F',
-                                      style: Theme.of(context).textTheme.labelLarge
-                                          ?.copyWith(
-                                            color: AppColors.accent,
-                                            fontWeight: FontWeight.w900,
-                                          ),
+                                    IconButton(
+                                      onPressed: item.quantity < item.product.stock
+                                          ? () => cart.increment(item.product)
+                                          : null,
+                                      icon: const Icon(Icons.add_circle_outline),
                                     ),
-                                    if (item.effectivePrice < item.product.price)
-                                      Text(
-                                        '${item.product.price.toStringAsFixed(0)} F',
-                                        style: Theme.of(context).textTheme.labelSmall
-                                            ?.copyWith(
-                                              decoration: TextDecoration.lineThrough,
-                                              color: AppColors.mutedText,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () => cart.decrement(item.product),
-                                icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: IconButton(
+                                onPressed: () => cart.remove(item.product),
+                                icon: const Icon(Icons.delete_outline),
+                                color: AppColors.danger,
+                                iconSize: 20,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                                tooltip: 'Supprimer',
                               ),
-                              Text(
-                                '${item.quantity}',
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(fontWeight: FontWeight.w900),
-                              ),
-                              IconButton(
-                                onPressed: () => cart.increment(item.product),
-                                icon: const Icon(Icons.add_circle_outline),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: IconButton(
-                          onPressed: () => cart.remove(item.product),
-                          icon: const Icon(Icons.delete_outline),
-                          color: AppColors.danger,
-                          iconSize: 20,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          tooltip: 'Supprimer',
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-      bottomSheet: cart.totalItems == 0
-          ? null
-          : SafeArea(
-              top: false,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  AppSizes.padding,
-                  AppSizes.padding,
-                  AppSizes.padding,
-                  AppSizes.padding + MediaQuery.of(context).padding.bottom,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border(top: BorderSide(color: AppColors.border)),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                SafeArea(
+                  top: false,
+                  child: Container(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSizes.padding,
+                      AppSizes.padding,
+                      AppSizes.padding,
+                      AppSizes.padding + MediaQuery.of(context).padding.bottom,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border(top: BorderSide(color: AppColors.border)),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(
-                          'Total',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w900),
+                        Row(
+                          children: [
+                            Text(
+                              'Total',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${cart.totalPrice.toStringAsFixed(0)} F',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.accent,
+                                  ),
+                            ),
+                          ],
                         ),
-                        const Spacer(),
-                        Text(
-                          '${cart.totalPrice.toStringAsFixed(0)} F',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.accent,
+                        const SizedBox(height: 10),
+                        FutureBuilder<AppUserModel?>(
+                          future: _userFuture,
+                          builder: (context, snapshot) {
+                            final address = snapshot.data?.adresse;
+                            if (address == null || address.trim().isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Adresse de livraison :',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 13,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Flexible(
+                                    child: Text(
+                                      address,
+                                      textAlign: TextAlign.right,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.mutedText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
                               ),
+                            );
+                          },
+                        ),
+                        AppButton(
+                          label: 'Passer la commande',
+                          loading: _loading,
+                          onPressed: _loading ? null : _checkout,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    FutureBuilder<AppUserModel?>(
-                      future: _userFuture,
-                      builder: (context, snapshot) {
-                        final address = snapshot.data?.adresse;
-                        if (address == null || address.trim().isEmpty) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Adresse de livraison :',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 13,
-                                  color: AppColors.text,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Flexible(
-                                child: Text(
-                                  address,
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.mutedText,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    AppButton(
-                      label: 'Passer la commande',
-                      loading: _loading,
-                      onPressed: _loading ? null : _checkout,
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
     );
   }

@@ -24,6 +24,7 @@ class _DashboardViewState extends State<DashboardView> {
   DashboardDateFilter _selectedDateFilter = DashboardDateFilter.all;
   DateTime? _customStartDate;
   DateTime? _customEndDate;
+  String _dashboardTab = 'finances'; // finances, performance
 
   @override
   void initState() {
@@ -112,53 +113,79 @@ class _DashboardViewState extends State<DashboardView> {
       return false;
     }).length;
 
-    // Top products
+    // Load order_items for finances and top selling products metrics
     final itemsRows = await client
         .from('order_items')
-        .select('product_id, quantity, orders(created_at)');
-    final allItems = (itemsRows as List).cast<Map<String, dynamic>>();
+        .select('quantity, price, product_id, orders(created_at, status), products(name, purchase_price)');
     
-    final items = allItems.where((item) {
-      final order = item['orders'] as Map?;
-      if (order == null || order['created_at'] == null) return false;
-      final createdAt = DateTime.parse(order['created_at'] as String);
-      return _isWithinDateRange(createdAt);
-    }).toList();
+    final allItems = (itemsRows as List).cast<Map<String, dynamic>>();
 
-    final productQty = <int, int>{};
-    for (final item in items) {
-      final pid = item['product_id'] as int?;
-      final qty = item['quantity'] as int? ?? 0;
-      if (pid != null) {
-        productQty[pid] = (productQty[pid] ?? 0) + qty;
-      }
+    double periodRevenue = 0.0;
+    double periodCost = 0.0;
+    final productSales = <int, _ProductPerformance>{};
+
+    for (final row in allItems) {
+      final order = row['orders'] as Map<String, dynamic>?;
+      final product = row['products'] as Map<String, dynamic>?;
+      if (order == null) continue;
+
+      final status = order['status'] as String? ?? 'pending';
+      if (status == 'cancelled') continue;
+
+      final createdAtStr = order['created_at'] as String?;
+      if (createdAtStr == null) continue;
+      final createdAt = DateTime.parse(createdAtStr);
+
+      if (!_isWithinDateRange(createdAt)) continue;
+
+      final productId = (row['product_id'] as num?)?.toInt() ?? 0;
+      final productName = product != null ? (product['name'] as String? ?? 'Produit inconnu') : 'Produit inconnu';
+      final quantity = (row['quantity'] as num?)?.toInt() ?? 0;
+      final price = (row['price'] as num?)?.toDouble() ?? 0.0;
+      final purchasePrice = product != null && product['purchase_price'] != null
+          ? (product['purchase_price'] as num).toDouble()
+          : 0.0;
+
+      periodRevenue += quantity * price;
+      periodCost += quantity * purchasePrice;
+
+      final perf = productSales.putIfAbsent(
+        productId,
+        () => _ProductPerformance(
+          name: productName,
+          quantity: 0,
+          revenue: 0.0,
+          profit: 0.0,
+        ),
+      );
+      perf.quantity += quantity;
+      perf.revenue += quantity * price;
+      perf.profit += quantity * (price - purchasePrice);
     }
 
-    final sortedProducts = productQty.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    final top5 = sortedProducts.take(5).toList();
+    double periodProfit = periodRevenue - periodCost;
+    double periodMargin = periodRevenue > 0 ? (periodProfit / periodRevenue) * 100 : 0.0;
 
-    // Fetch product names
-    final topProductNames = <int, String>{};
-    if (top5.isNotEmpty) {
-      final ids = top5.map((e) => e.key).toList();
-      final prodRows = await client
-          .from('products')
-          .select('id, name')
-          .inFilter('id', ids);
-      for (final row in (prodRows as List).cast<Map<String, dynamic>>()) {
-        topProductNames[row['id'] as int] = row['name'] as String;
-      }
+    final sortedPerformances = productSales.values.toList()
+      ..sort((a, b) => b.quantity.compareTo(a.quantity));
+    final topProducts = sortedPerformances.take(5).toList();
+
+    // Stock valuation
+    final productsRows = await client
+        .from('products')
+        .select('price, stock, purchase_price');
+    final allProducts = (productsRows as List).cast<Map<String, dynamic>>();
+
+    double stockValueVente = 0.0;
+    double stockValueAchat = 0.0;
+    for (final p in allProducts) {
+      final price = (p['price'] as num?)?.toDouble() ?? 0.0;
+      final stock = (p['stock'] as num?)?.toInt() ?? 0;
+      final purchasePrice = (p['purchase_price'] as num?)?.toDouble() ?? 0.0;
+      stockValueVente += price * stock;
+      stockValueAchat += purchasePrice * stock;
     }
-
-    final topProducts = top5
-        .map(
-          (e) => _TopProduct(
-            name: topProductNames[e.key] ?? 'Produit #${e.key}',
-            quantity: e.value,
-          ),
-        )
-        .toList();
+    double stockProfitPotential = stockValueVente - stockValueAchat;
 
     return _DashboardData(
       totalOrders: totalOrders,
@@ -170,11 +197,139 @@ class _DashboardViewState extends State<DashboardView> {
       revenue: revenue,
       totalClients: totalClients,
       topProducts: topProducts,
+      periodRevenue: periodRevenue,
+      periodCost: periodCost,
+      periodProfit: periodProfit,
+      periodMargin: periodMargin,
+      stockValueAchat: stockValueAchat,
+      stockValueVente: stockValueVente,
+      stockProfitPotential: stockProfitPotential,
     );
   }
 
   Future<void> _reload() async {
-    setState(() => _future = _load());
+    setState(() {
+      _future = _load();
+    });
+  }
+
+  String _formatPrice(double price) {
+    final parts = price.toStringAsFixed(0).split('');
+    final buffer = StringBuffer();
+    for (int i = 0; i < parts.length; i++) {
+      if (i > 0 && (parts.length - i) % 3 == 0) {
+        buffer.write(' ');
+      }
+      buffer.write(parts[i]);
+    }
+    return buffer.toString();
+  }
+
+  Widget _buildTabButton({
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: active ? AppColors.primary : AppColors.background,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: active ? AppColors.primary : AppColors.border,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                color: active ? Colors.white : AppColors.mutedText,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetricTile({
+    required String label,
+    required String value,
+    required Color color,
+    required IconData icon,
+    bool isBold = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.mutedText,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: isBold ? color : AppColors.text,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildValuationItem({
+    required String label,
+    required String value,
+    Color? color,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w800,
+            color: AppColors.mutedText,
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+            color: color ?? AppColors.text,
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -625,180 +780,287 @@ class _DashboardViewState extends State<DashboardView> {
                 ),
               ),
               const SizedBox(height: 24),
-              // Top products section
+              // Analyses & Performance section
               Text(
-                'Top produits vendus',
+                'Analyses & Performance',
                 style: Theme.of(context)
                     .textTheme
                     .titleLarge
                     ?.copyWith(fontWeight: FontWeight.w900),
               ),
               const SizedBox(height: 12),
-              if (data.topProducts.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.inventory_2_outlined,
-                        size: 64,
-                        color: AppColors.mutedText,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: AppColors.border, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Tab selector inside the card
+                    Row(
+                      children: [
+                        _buildTabButton(
+                          label: 'Finances',
+                          active: _dashboardTab == 'finances',
+                          onTap: () => setState(() => _dashboardTab = 'finances'),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildTabButton(
+                          label: 'Top Ventes',
+                          active: _dashboardTab == 'performance',
+                          onTap: () => setState(() => _dashboardTab = 'performance'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+
+                    if (_dashboardTab == 'finances') ...[
+                      // Grid of CA, Cost, Net Profit, Margin %
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Chiffre d\'Aff.',
+                              value: '${_formatPrice(data.periodRevenue)} F',
+                              color: Colors.blue,
+                              icon: Icons.trending_up_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Coût d\'Achat',
+                              value: '${_formatPrice(data.periodCost)} F',
+                              color: Colors.orange,
+                              icon: Icons.shopping_bag_outlined,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Bénéfice Net',
+                              value: '${_formatPrice(data.periodProfit)} F',
+                              color: const Color(0xFF55D80F),
+                              icon: Icons.monetization_on_outlined,
+                              isBold: true,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _buildMetricTile(
+                              label: 'Marge Moyenne',
+                              value: '${data.periodMargin.toStringAsFixed(1)}%',
+                              color: const Color(0xFF8B5CF6),
+                              icon: Icons.percent,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
-                      Text(
-                        'Aucune vente enregistrée',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppColors.border, width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: data.topProducts.asMap().entries.map((entry) {
-                      final i = entry.key;
-                      final p = entry.value;
-                      final colors = [
-                        [const Color(0xFFFFD700), const Color(0xFFFFA500)],
-                        [const Color(0xFFC0C0C0), const Color(0xFF808080)],
-                        [const Color(0xFFCD7F32), const Color(0xFF8B4513)],
-                        [const Color(0xFF55D80F), const Color(0xFF1FAE3C)],
-                        [const Color(0xFF3B82F6), const Color(0xFF2563EB)],
-                      ];
-                      final maxQty = data.topProducts.first.quantity;
+                      Container(height: 1.5, color: AppColors.border),
+                      const SizedBox(height: 12),
 
-                      return Container(
-                        margin: EdgeInsets.only(
-                          bottom: i < data.topProducts.length - 1 ? 16 : 0,
+                      // Stock valuation
+                      const Text(
+                        'Valorisation du Stock Actuel',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.mutedText,
+                          letterSpacing: 0.1,
                         ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: colors[i % colors.length],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildValuationItem(
+                            label: 'Valeur d\'Achat',
+                            value: '${_formatPrice(data.stockValueAchat)} F',
+                          ),
+                          _buildValuationItem(
+                            label: 'Valeur de Vente',
+                            value: '${_formatPrice(data.stockValueVente)} F',
+                          ),
+                          _buildValuationItem(
+                            label: 'Bénéf. Potentiel',
+                            value: '${_formatPrice(data.stockProfitPotential)} F',
+                            color: const Color(0xFF55D80F),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      // Performance Top Products Tab
+                      if (data.topProducts.isEmpty) ...[
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.analytics_outlined, color: AppColors.mutedText, size: 36),
+                                SizedBox(height: 10),
+                                Text(
+                                  'Aucune vente enregistrée.',
+                                  style: TextStyle(
+                                    color: AppColors.mutedText,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
                                 ),
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: colors[i % colors.length][0]
-                                        .withValues(alpha: 0.3),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
-                              child: Center(
-                                child: i < 3
-                                    ? const Icon(
-                                        Icons.workspace_premium,
-                                        color: Colors.white,
-                                        size: 20,
-                                      )
-                                    : Text(
-                                        '${i + 1}',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w900,
-                                              color: Colors.white,
-                                            ),
-                                      ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w900),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${p.quantity} unités vendues',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.mutedText,
-                                          fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ] else ...[
+                        const Text(
+                          'Top 5 Produits les Plus Vendus',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.mutedText,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: data.topProducts.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          itemBuilder: (context, idx) {
+                            final item = data.topProducts[idx];
+                            final maxQty = data.topProducts.first.quantity;
+                            final ratio = maxQty > 0 ? item.quantity / maxQty : 0.0;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    // Rank circle
+                                    Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: idx == 0
+                                            ? Colors.amber.withValues(alpha: 0.12)
+                                            : (idx == 1
+                                                ? Colors.grey.withValues(alpha: 0.12)
+                                                : (idx == 2
+                                                    ? Colors.brown.withValues(alpha: 0.12)
+                                                    : AppColors.background)),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          '${idx + 1}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            color: idx == 0
+                                                ? Colors.amber
+                                                : (idx == 1
+                                                    ? Colors.grey.shade700
+                                                    : (idx == 2
+                                                        ? Colors.brown
+                                                        : AppColors.text)),
+                                          ),
                                         ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: maxQty > 0 ? p.quantity / maxQty : 0,
-                                      backgroundColor: AppColors.border,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        colors[i % colors.length][0],
                                       ),
-                                      minHeight: 4,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        item.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: AppColors.text,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.08),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${item.quantity} vendus',
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                // Progress bar showing proportional sales
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(2),
+                                  child: Container(
+                                    height: 4,
+                                    width: double.infinity,
+                                    color: Colors.grey.shade100,
+                                    child: FractionallySizedBox(
+                                      alignment: Alignment.centerLeft,
+                                      widthFactor: ratio,
+                                      child: Container(
+                                        color: idx == 0 ? Colors.amber : AppColors.primary,
+                                      ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors[i % colors.length][0].withValues(
-                                  alpha: 0.15,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                '${p.quantity}',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w900,
-                                      color: colors[i % colors.length][0],
+                                const SizedBox(height: 4),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'CA : ${_formatPrice(item.revenue)} F',
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        color: AppColors.mutedText,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
-                              ),
-                            ),
-                          ],
+                                    Text(
+                                      'Bénéfice : +${_formatPrice(item.profit)} F',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        color: item.profit >= 0 ? const Color(0xFF55D80F) : Colors.red,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
                         ),
-                      );
-                    }).toList(),
-                  ),
+                      ],
+                    ],
+                  ],
                 ),
+              ),
             ],
           );
         },
@@ -929,7 +1191,14 @@ class _DashboardData {
   final int cancelledOrders;
   final double revenue;
   final int totalClients;
-  final List<_TopProduct> topProducts;
+  final List<_ProductPerformance> topProducts;
+  final double periodRevenue;
+  final double periodCost;
+  final double periodProfit;
+  final double periodMargin;
+  final double stockValueAchat;
+  final double stockValueVente;
+  final double stockProfitPotential;
 
   const _DashboardData({
     required this.totalOrders,
@@ -941,14 +1210,28 @@ class _DashboardData {
     required this.revenue,
     required this.totalClients,
     required this.topProducts,
+    required this.periodRevenue,
+    required this.periodCost,
+    required this.periodProfit,
+    required this.periodMargin,
+    required this.stockValueAchat,
+    required this.stockValueVente,
+    required this.stockProfitPotential,
   });
 }
 
-class _TopProduct {
+class _ProductPerformance {
   final String name;
-  final int quantity;
+  int quantity;
+  double revenue;
+  double profit;
 
-  const _TopProduct({required this.name, required this.quantity});
+  _ProductPerformance({
+    required this.name,
+    this.quantity = 0,
+    this.revenue = 0.0,
+    this.profit = 0.0,
+  });
 }
 
 class _FilterChip extends StatelessWidget {

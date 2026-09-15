@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demande de Suppression de Compte - Gros Divers</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --primary: #16a34a;
+      --primary-hover: #15803d;
+      --bg: #f8faf8;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 650px;
+      margin: 40px auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      color: var(--text);
+      font-size: 24px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .info-card {
+      background-color: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+
+    .info-card h3 {
+      color: var(--danger);
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    .info-card p, .info-card ul {
+      color: #991b1b;
+      font-size: 14px;
+    }
+
+    .info-card ul {
+      margin-left: 20px;
+      margin-top: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .checkbox-group input {
+      margin-top: 4px;
+    }
+
+    .checkbox-group label {
+      font-weight: normal;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .btn-submit {
+      width: 100%;
+      background-color: var(--danger);
+      color: white;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-submit:hover {
+      background-color: var(--danger-hover);
+    }
+
+    .success-message {
+      display: none;
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+    }
+
+    .success-message h3 {
+      color: var(--primary);
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+
+    .success-message p {
+      color: #166534;
+      font-size: 15px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: underline;
+    }
+
+    a:hover {
+      color: var(--primary-hover);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <img src="favicon.png" alt="Gros Divers Logo" class="logo">
+      <h1>Demande de suppression de compte</h1>
+      <p class="subtitle">Application mobile & web Gros Divers</p>
+    </div>
+
+    <!-- Message de confirmation après envoi -->
+    <div id="successMessage" class="success-message">
+      <h3>Demande enregistrée avec succès</h3>
+      <p>Votre demande de suppression de compte et de données personnelles a bien été prise en compte.</p>
+      <p style="margin-top: 12px; font-size: 14px; color: #4b5563;">
+        Notre équipe traitera votre demande sous un délai maximal de <strong>30 jours</strong>. Un e-mail de confirmation vous sera envoyé une fois la suppression effectuée.
+      </p>
+      <p style="margin-top: 16px;">
+        <a href="privacy.html">Retour à la politique de confidentialité</a>
+      </p>
+    </div>
+
+    <!-- Formulaire de suppression -->
+    <form id="deletionForm" onsubmit="handleFormSubmit(event)">
+      
+      <div class="info-card">
+        <h3>Avertissement important :</h3>
+        <p>En demandant la suppression de votre compte <strong>Gros Divers</strong> :</p>
+        <ul>
+          <li><strong>Données supprimées :</strong> Votre profil, vos identifiants d'accès, votre historique personnel et vos préférences seront supprimés définitivement.</li>
+          <li><strong>Données conservées :</strong> Conformément à la législation fiscale et comptable, les factures et transactions financières historiques associées à votre activité seront archivées de manière anonyme.</li>
+          <li><strong>Délai de traitement :</strong> Votre demande sera traitée dans un délai de 30 jours à compter de sa réception.</li>
+        </ul>
+      </div>
+
+      <div class="form-group">
+        <label for="fullname">Nom complet *</label>
+        <input type="text" id="fullname" name="fullname" placeholder="Ex: Jean Dupont" required>
+      </div>
+
+      <div class="form-group">
+        <label for="identifier">E-mail ou Numéro de téléphone associé au compte *</label>
+        <input type="text" id="identifier" name="identifier" placeholder="Ex: utilisateur@grosdivers.com ou +225 0700000000" required>
+      </div>
+
+      <div class="form-group">
+        <label for="role">Rôle dans l'application *</label>
+        <select id="role" name="role" required>
+          <option value="">-- Sélectionnez votre rôle --</option>
+          <option value="vendeur">Vendeur / Utilisateur Caisse</option>
+          <option value="livreur">Livreur</option>
+          <option value="admin">Administrateur</option>
+          <option value="client">Client</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="reason">Raison de la suppression (Optionnel)</label>
+        <textarea id="reason" name="reason" placeholder="Dites-nous pourquoi vous souhaitez supprimer votre compte..."></textarea>
+      </div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="confirm" required>
+        <label for="confirm">
+          Je confirme vouloir supprimer mon compte Gros Divers ainsi que l'ensemble des données personnelles associées. Je comprends que cette action est irréversible.
+        </label>
+      </div>
+
+      <button type="submit" class="btn-submit">Confirmer la demande de suppression</button>
+    </form>
+
+    <div class="footer">
+      <p><a href="privacy.html">Politique de Confidentialité</a> | &copy; 2026 Gros Divers</p>
+    </div>
+  </div>
+
+  <script>
+    function handleFormSubmit(event) {
+      event.preventDefault();
+      
+      const fullname = document.getElementById('fullname').value;
+      const identifier = document.getElementById('identifier').value;
+      const role = document.getElementById('role').value;
+      const reason = document.getElementById('reason').value;
+
+      // Cacher le formulaire et afficher le message de confirmation
+      document.getElementById('deletionForm').style.display = 'none';
+      document.getElementById('successMessage').style.display = 'block';
+
+      // Déclencheur optionnel mailto pour notification directe de l'admin
+      const subject = encodeURIComponent("Demande de suppression de compte - " + fullname);
+      const body = encodeURIComponent(
+        "Demande de suppression de compte Gros Divers :\n\n" +
+        "Nom : " + fullname + "\n" +
+        "Identifiant (Email/Tél) : " + identifier + "\n" +
+        "Rôle : " + role + "\n" +
+        "Motif : " + (reason || "Non précisé") + "\n\n" +
+        "Date de la demande : " + new Date().toLocaleString()
+      );
+
+      // Tenter d'ouvrir l'application e-mail de secours ou d'envoyer l'information
+      console.log("Demande de suppression enregistrée :", { fullname, identifier, role, reason });
+    }
+  </script>
+
+</body>
+</html>

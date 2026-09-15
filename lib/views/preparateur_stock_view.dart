@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/stock_model.dart';
+import '../providers/auth_provider.dart';
 import '../services/stocks_service.dart';
 import '../utils/constants/app_colors.dart';
 
@@ -144,12 +146,26 @@ class _PreparateurStockViewState extends State<PreparateurStockView> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.menu),
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
+        ),
         title: const Text(
           'Gestion du stock',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
+          IconButton(
+            icon: const Icon(Icons.logout, color: AppColors.danger),
+            onPressed: () async {
+              final auth = context.read<AuthProvider>();
+              await auth.logout();
+            },
+            tooltip: 'Se déconnecter',
+          ),
         ],
       ),
       body: Column(

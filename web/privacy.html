@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Politique de Confidentialité - Gros Divers</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --primary: #16a34a;
+      --primary-hover: #15803d;
+      --bg: #f8faf8;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: var(--card-bg);
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      color: var(--primary);
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    h2 {
+      color: var(--text);
+      font-size: 20px;
+      margin-top: 28px;
+      margin-bottom: 12px;
+      border-left: 4px solid var(--primary);
+      padding-left: 10px;
+    }
+
+    p, li {
+      color: #4b5563;
+      font-size: 15px;
+      margin-bottom: 12px;
+    }
+
+    ul {
+      margin-left: 24px;
+      margin-bottom: 16px;
+    }
+
+    li {
+      margin-bottom: 6px;
+    }
+
+    .box-info {
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      padding: 16px;
+      margin: 20px 0;
+    }
+
+    .box-info p {
+      color: #166534;
+      margin-bottom: 0;
+    }
+
+    a {
+      color: var(--primary);
+      text-decoration: underline;
+      font-weight: 500;
+    }
+
+    a:hover {
+      color: var(--primary-hover);
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .btn {
+      display: inline-block;
+      background-color: var(--primary);
+      color: white;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin-top: 10px;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background-color: var(--primary-hover);
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header">
+      <img src="favicon.png" alt="Gros Divers Logo" class="logo">
+      <h1>Politique de Confidentialité</h1>
+      <p class="subtitle">Dernière mise à jour : 17 août 2026 | Application Gros Divers</p>
+    </div>
+
+    <div class="box-info">
+      <p><strong>Engagement de confidentialité :</strong> Chez <strong>Gros Divers</strong>, la protection de vos données personnelles et commerciales est notre priorité. Cette politique explique comment nous collectons, utilisons, stockons et protégeons vos informations.</p>
+    </div>
+
+    <h2>1. Données que nous collectons</h2>
+    <p>Dans le cadre de l'utilisation de l'application mobile et web <strong>Gros Divers</strong>, nous sommes amenés à collecter les catégories de données suivantes :</p>
+    <ul>
+      <li><strong>Informations d'identification et de compte :</strong> Nom, adresse e-mail, numéro de téléphone, rôle utilisateur.</li>
+      <li><strong>Données de transactions et de vente :</strong> Historique des commandes, paniers, produits, factures et rapports de ventes.</li>
+      <li><strong>Données de livraison et de localisation :</strong> Coordonnées de livraison et position géographique (avec votre autorisation) pour le suivi des livraisons actives.</li>
+      <li><strong>Accès Appareil Photo :</strong> Utilisé uniquement pour scanner des QR codes et codes-barres de produits ou factures.</li>
+      <li><strong>Données audio & multimédia :</strong> Enregistrements vocaux optionnels pour joindre des notes ou consignes aux commandes.</li>
+    </ul>
+
+    <h2>2. Utilisation de vos données</h2>
+    <p>Vos données sont traitées pour les finalités suivantes :</p>
+    <ul>
+      <li>Assurer le fonctionnement optimal de l'application (caisse, gestion de stocks, livraisons).</li>
+      <li>Permettre l'authentification sécurisée des utilisateurs.</li>
+      <li>Traiter les commandes, générer les factures et reçus au format PDF.</li>
+      <li>Permettre le suivi en temps réel des livraisons par les livreurs et administrateurs.</li>
+      <li>Envoyer des notifications relatives au statut de vos commandes (via Firebase Messaging).</li>
+    </ul>
+
+    <h2>3. Partage et Stockage des données</h2>
+    <p>Vos informations sont stockées sur des serveurs sécurisés (Supabase & Firebase) avec un chiffrement conforme aux normes de l'industrie.</p>
+    <p><strong>Nous ne vendons, ne louons et ne partageons AUCUNE donnée personnelle ou commerciale à des tiers à des fins publicitaires ou commerciales.</strong></p>
+
+    <h2>4. Durée de conservation des données</h2>
+    <p>Nous conservons vos données aussi longtemps que votre compte reste actif. En cas d'inactivité ou sur demande explicite, vos données seront supprimées définitivement conformément à notre procédure de suppression.</p>
+
+    <h2>5. Suppression de votre compte et de vos données</h2>
+    <p>Vous disposez du droit d'accéder, de rectifier ou de demander la suppression complète de votre compte et des données associées à tout moment.</p>
+    <div class="box-info">
+      <p>Pour soumettre une demande de suppression de compte, veuillez consulter notre page dédiée :</p>
+      <p style="margin-top: 8px;">
+        <a href="delete-account.html" class="btn">Demander la suppression de mon compte</a>
+      </p>
+    </div>
+
+    <h2>6. Sécurité des données</h2>
+    <p>Nous mettons en œuvre des mesures de sécurité techniques et organisationnelles appropriées (chiffrement SSL/TLS, contrôles d'accès stricts) pour protéger vos données contre tout accès non autorisé, altération ou divulgation.</p>
+
+    <h2>7. Nous contacter</h2>
+    <p>Pour toute question concernant cette politique de confidentialité ou l'exercice de vos droits, vous pouvez nous contacter :</p>
+    <ul>
+      <li><strong>Par e-mail :</strong> support@grosdivers.com (ou contactez l'administrateur de votre plateforme)</li>
+      <li><strong>Par téléphone :</strong> Service Support Client Gros Divers</li>
+    </ul>
+
+    <div class="footer">
+      &copy; 2026 Gros Divers. Tous droits réservés.
+    </div>
+  </div>
+
+</body>
+</html>

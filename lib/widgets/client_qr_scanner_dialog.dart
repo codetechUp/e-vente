@@ -4,8 +4,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/foundation.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user_model.dart';
+import '../providers/auth_provider.dart';
 import '../services/app_users_service.dart';
 import '../services/location_service.dart';
 import '../utils/constants/app_colors.dart';
@@ -534,6 +537,10 @@ class _ClientDetailsSheetState extends State<_ClientDetailsSheet> {
         ? '${widget.referrer!.name ?? widget.referrer!.nom ?? "Commercial"} (${widget.referrer!.phone ?? "Pas de numéro"})'
         : 'Administrateur (Direct)';
 
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+    final isAllowedToEdit = auth.isAdmin || (_client.referrerId != null && _client.referrerId == currentUserId);
+
     return Container(
       padding: EdgeInsets.only(
         left: AppSizes.paddingLg,
@@ -589,11 +596,12 @@ class _ClientDetailsSheetState extends State<_ClientDetailsSheet> {
                   ],
                 ),
               ),
-              IconButton(
-                icon: const Icon(LucideIcons.edit3, color: AppColors.brandGreenDark),
-                onPressed: _editClientProfile,
-                tooltip: 'Modifier les informations',
-              ),
+              if (isAllowedToEdit)
+                IconButton(
+                  icon: const Icon(LucideIcons.edit3, color: AppColors.brandGreenDark),
+                  onPressed: _editClientProfile,
+                  tooltip: 'Modifier les informations',
+                ),
             ],
           ),
           const SizedBox(height: 20),
@@ -623,20 +631,22 @@ class _ClientDetailsSheetState extends State<_ClientDetailsSheet> {
           // Actions Buttons
           Row(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _gpsUpdating ? null : _updateGPSLocation,
-                  icon: _gpsUpdating
-                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(LucideIcons.mapPin, size: 18),
-                  label: const Text('Actualiser GPS', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              if (isAllowedToEdit) ...[
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _gpsUpdating ? null : _updateGPSLocation,
+                    icon: _gpsUpdating
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(LucideIcons.mapPin, size: 18),
+                    label: const Text('Actualiser GPS', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
+                const SizedBox(width: 12),
+              ],
               Expanded(
                 child: AppButton(
                   label: 'Fermer',

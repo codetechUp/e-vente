@@ -10,6 +10,8 @@ import '../users_management_view.dart';
 import '../delivery_settings_management_view.dart';
 import '../commercials_management_view.dart';
 import '../audios_management_view.dart';
+import '../app_config_view.dart';
+import '../notifications_management_view.dart';
 
 class ManagementTab extends StatelessWidget {
   const ManagementTab({super.key});
@@ -178,6 +180,34 @@ class ManagementTab extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const AudiosManagementView(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuCard(
+                title: 'Notifications Push',
+                subtitle: 'Diffuser des alertes promo, restock ou générales',
+                icon: Icons.notifications_active_outlined,
+                color: const Color(0xFFEF4444),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsManagementView(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 14),
+              _MenuCard(
+                title: 'Configuration boutique',
+                subtitle: 'Nom, localisation, numéros WhatsApp et appel',
+                icon: Icons.tune_rounded,
+                color: const Color(0xFF6366F1),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AppConfigView(),
                     ),
                   );
                 },

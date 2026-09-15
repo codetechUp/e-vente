@@ -11,6 +11,7 @@ import '../../services/promotions_service.dart';
 import '../../utils/constants/app_colors.dart';
 import '../../utils/constants/app_sizes.dart';
 import '../cart_view.dart';
+import '../product_details_view.dart';
 import '../../widgets/badge_icon_button.dart';
 
 class CatalogTab extends StatefulWidget {
@@ -70,7 +71,7 @@ class _CatalogTabState extends State<CatalogTab> {
 
     return _CatalogData(
       categories: categories,
-      products: products,
+      products: products.where((p) => p.display && p.stock > 0).toList(),
       promoMap: promoMap,
     );
   }
@@ -169,6 +170,9 @@ class _CatalogTabState extends State<CatalogTab> {
                       .where((p) => p.name.toLowerCase().contains(_searchQuery))
                       .toList();
                 }
+
+                // Exclude out-of-stock products
+                filtered = filtered.where((p) => p.stock > 0).toList();
 
                 return Row(
                   children: [
@@ -475,6 +479,15 @@ class _CatalogProductCard extends StatelessWidget {
         .where((item) => item.product.id == product.id)
         .fold<int>(0, (sum, item) => sum + item.quantity);
 
+    void navigateToDetails() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProductDetailsView(product: product),
+        ),
+      );
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(10),
@@ -492,62 +505,65 @@ class _CatalogProductCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Image on the left
-          Stack(
-            children: [
-              Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: (product.imageUrl ?? '').trim().isEmpty
-                      ? const Center(
-                          child: Icon(
-                            Icons.image_outlined,
-                            size: 36,
-                            color: AppColors.mutedText,
-                          ),
-                        )
-                      : Image.network(
-                          product.imageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (_, __, ___) => const Center(
+          // Image on the left (clickable)
+          GestureDetector(
+            onTap: navigateToDetails,
+            child: Stack(
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: (product.imageUrl ?? '').trim().isEmpty
+                        ? const Center(
                             child: Icon(
-                              Icons.broken_image_outlined,
+                              Icons.image_outlined,
                               size: 36,
                               color: AppColors.mutedText,
                             ),
+                          )
+                        : Image.network(
+                            product.imageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                size: 36,
+                                color: AppColors.mutedText,
+                              ),
+                            ),
                           ),
-                        ),
+                  ),
                 ),
-              ),
-              if (hasPromo)
-                Positioned(
-                  top: 4,
-                  left: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '-$discountPercent%',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
+                if (hasPromo)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '-$discountPercent%',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(width: 16),
           // Product details on the right
@@ -555,42 +571,52 @@ class _CatalogProductCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title
-                Text(
-                  product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppColors.text,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // Price
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    Text(
-                      '${_formatPrice(discountedPrice)} F',
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                    if (hasPromo)
+                // Clickable title & price
+                GestureDetector(
+                  onTap: navigateToDetails,
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
                       Text(
-                        '${_formatPrice(product.price)} F',
-                        style: const TextStyle(
-                          decoration: TextDecoration.lineThrough,
-                          color: AppColors.mutedText,
-                          fontSize: 12,
+                        product.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppColors.text,
                         ),
                       ),
-                  ],
+                      const SizedBox(height: 6),
+                      // Price
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            '${_formatPrice(discountedPrice)} F',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                          if (hasPromo)
+                            Text(
+                              '${_formatPrice(product.price)} F',
+                              style: const TextStyle(
+                                decoration: TextDecoration.lineThrough,
+                                color: AppColors.mutedText,
+                                fontSize: 12,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 8),
                 // Quantity Selector: minus, count, plus
@@ -632,18 +658,22 @@ class _CatalogProductCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     // Plus button
                     InkWell(
-                      onTap: () {
-                        cart.add(
-                          product,
-                          effectivePrice: hasPromo ? discountedPrice : null,
-                        );
-                      },
+                      onTap: quantity < product.stock
+                          ? () {
+                              cart.add(
+                                product,
+                                effectivePrice: hasPromo ? discountedPrice : null,
+                              );
+                            }
+                          : null,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
                         width: 32,
                         height: 32,
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
+                          color: quantity < product.stock
+                              ? AppColors.primary
+                              : Colors.grey.shade300,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(

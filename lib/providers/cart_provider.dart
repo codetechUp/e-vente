@@ -55,18 +55,24 @@ class CartProvider extends ChangeNotifier {
     if (id == null) return;
 
     final price = effectivePrice ?? product.price;
+    final maxQty = product.stock; // never exceed available stock
 
     final existing = _itemsByProductId[id];
     if (existing == null) {
+      final newQty = quantity.clamp(0, maxQty);
+      if (newQty <= 0) return;
       _itemsByProductId[id] = CartItem(
         product: product,
-        quantity: quantity,
+        quantity: newQty,
         effectivePrice: price,
       );
     } else {
-      _itemsByProductId[id] = existing.copyWith(
-        quantity: existing.quantity + quantity,
-      );
+      final newQty = (existing.quantity + quantity).clamp(0, maxQty);
+      if (newQty <= 0) {
+        _itemsByProductId.remove(id);
+      } else {
+        _itemsByProductId[id] = existing.copyWith(quantity: newQty);
+      }
     }
 
     notifyListeners();
@@ -78,14 +84,15 @@ class CartProvider extends ChangeNotifier {
     final id = product.id;
     if (id == null) return;
 
-    if (quantity <= 0) {
+    final clampedQty = quantity.clamp(0, product.stock);
+    if (clampedQty <= 0) {
       _itemsByProductId.remove(id);
     } else {
       final price = effectivePrice ?? product.price;
       final existing = _itemsByProductId[id];
       _itemsByProductId[id] = CartItem(
         product: product,
-        quantity: quantity,
+        quantity: clampedQty,
         effectivePrice: existing?.effectivePrice ?? price,
       );
     }

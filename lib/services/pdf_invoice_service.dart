@@ -53,32 +53,24 @@ class PdfInvoiceService {
                         style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
-                          color: brandGreenDark,
+                          color: textDark,
                         ),
                       ),
                       pw.SizedBox(height: 6),
                       pw.Text('Dakar, Sénégal', style: pw.TextStyle(color: textGrey, fontSize: 10)),
                       pw.Text('Téléphone : +221 77 999 02 02', style: pw.TextStyle(color: textGrey, fontSize: 10)),
-                      pw.Text('Email : contact@gros-divers.sn', style: pw.TextStyle(color: textGrey, fontSize: 10)),
                     ],
                   ),
                   // Invoice Meta Badge
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: pw.BoxDecoration(
-                          color: brandGreen,
-                          borderRadius: pw.BorderRadius.circular(8),
-                        ),
-                        child: pw.Text(
-                          'FACTURE',
-                          style: pw.TextStyle(
-                            fontSize: 16,
-                            fontWeight: pw.FontWeight.bold,
-                            color: PdfColors.white,
-                          ),
+                      pw.Text(
+                        'FACTURE',
+                        style: pw.TextStyle(
+                          fontSize: 20,
+                          fontWeight: pw.FontWeight.bold,
+                          color: textDark,
                         ),
                       ),
                       pw.SizedBox(height: 8),
@@ -145,23 +137,12 @@ class PdfInvoiceService {
                         style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: textGrey),
                       ),
                       pw.SizedBox(height: 6),
-                      pw.Container(
-                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: pw.BoxDecoration(
-                          color: order.status == 'delivered'
-                              ? PdfColors.green100
-                              : PdfColors.orange100,
-                          borderRadius: pw.BorderRadius.circular(4),
-                        ),
-                        child: pw.Text(
-                          order.status == 'delivered' ? 'PAYÉ' : 'À PAYER À LA LIVRAISON',
-                          style: pw.TextStyle(
-                            fontSize: 9,
-                            fontWeight: pw.FontWeight.bold,
-                            color: order.status == 'delivered'
-                                ? PdfColors.green800
-                                : PdfColors.orange800,
-                          ),
+                      pw.Text(
+                        order.status == 'delivered' ? 'PAYÉ' : 'À PAYER À LA LIVRAISON',
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: textDark,
                         ),
                       ),
                     ],
@@ -289,11 +270,11 @@ class PdfInvoiceService {
                           children: [
                             pw.Text(
                               'TOTAL :',
-                              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: brandGreenDark),
+                              style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: textDark),
                             ),
                             pw.Text(
                               '${total.toStringAsFixed(0)} F',
-                              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: brandGreenDark),
+                              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: textDark),
                             ),
                           ],
                         ),

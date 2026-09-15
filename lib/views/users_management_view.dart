@@ -13,6 +13,7 @@ import '../utils/constants/app_sizes.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/client_qr_scanner_dialog.dart';
+import 'admin_create_order_view.dart';
 
 class UsersManagementView extends StatefulWidget {
   const UsersManagementView({super.key});
@@ -699,6 +700,19 @@ class _UsersManagementViewState extends State<UsersManagementView> {
                           tooltip: 'Modifier',
                           onPressed: () => _openEditUser(u, roles, true),
                         ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.shoppingCart, size: 16),
+                          color: const Color(0xFF6366F1),
+                          tooltip: 'Créer une commande',
+                          onPressed: u.isActive
+                              ? () => Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          AdminCreateOrderView(client: u),
+                                    ),
+                                  )
+                              : null,
+                        ),
                       ],
                     ),
                   ),
@@ -930,6 +944,42 @@ class _UserCard extends StatelessWidget {
               ),
             ],
           ),
+          if (!isPending && active) ...[
+            const SizedBox(height: 10),
+            Builder(
+              builder: (ctx) => GestureDetector(
+                onTap: () => Navigator.of(ctx).push(
+                  MaterialPageRoute(
+                    builder: (_) => AdminCreateOrderView(client: user),
+                  ),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.shoppingCart, size: 15, color: Colors.white),
+                      SizedBox(width: 6),
+                      Text(
+                        'Créer une commande',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           if (isPending) ...[
             const SizedBox(height: 10),
             Container(
@@ -1617,6 +1667,48 @@ class _EditUserPanelState extends State<_EditUserPanel> {
                 ),
               ],
             ),
+            if (widget.user.isActive) ...[
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => AdminCreateOrderView(client: widget.user),
+                  ),
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(LucideIcons.shoppingCart, size: 16, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Créer une commande pour ce client',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             const SizedBox(height: 18),
             AppTextField(
               controller: _name,

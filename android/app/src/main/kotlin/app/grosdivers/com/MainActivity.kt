@@ -1,4 +1,4 @@
-package com.example.e_vente
+package app.grosdivers.com
 
 import io.flutter.embedding.android.FlutterActivity
 

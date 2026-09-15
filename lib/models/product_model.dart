@@ -2,7 +2,8 @@ class ProductModel {
   final int? id;
   final String name;
   final String? description;
-  final double price;
+  final double price; // Selling price (taux de vente)
+  final double purchasePrice; // Purchase price (taux d'achat)
   final String? grille;
   final int? categoryId;
   final String? imageUrl;
@@ -15,6 +16,7 @@ class ProductModel {
     required this.name,
     this.description,
     required this.price,
+    this.purchasePrice = 0.0,
     this.grille,
     this.categoryId,
     this.imageUrl,
@@ -25,6 +27,7 @@ class ProductModel {
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final priceValue = json['price'];
+    final purchasePriceValue = json['purchase_price'];
     final stockValue = json['stock'];
     final displayValue = json['display'];
 
@@ -33,6 +36,7 @@ class ProductModel {
       name: json['name'] as String,
       description: json['description'] as String?,
       price: priceValue == null ? 0 : (priceValue as num).toDouble(),
+      purchasePrice: purchasePriceValue == null ? 0.0 : (purchasePriceValue as num).toDouble(),
       grille: json['grille']?.toString(),
       categoryId: json['category_id'] as int?,
       imageUrl: json['image_url'] as String?,
@@ -50,6 +54,7 @@ class ProductModel {
       'name': name,
       'description': description,
       'price': price,
+      'purchase_price': purchasePrice,
       'grille': grille,
       'category_id': categoryId,
       'image_url': imageUrl,

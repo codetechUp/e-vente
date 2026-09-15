@@ -10,6 +10,7 @@ import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../models/audio_model.dart';
 import '../services/audios_service.dart';
@@ -163,15 +164,24 @@ class _AudiosManagementViewState extends State<AudiosManagementView> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(12),
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: (isExpired ? Colors.grey : AppColors.brandGreen).withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(12),
+                          image: audio.imageUrl != null && audio.imageUrl!.isNotEmpty
+                              ? DecorationImage(
+                                  image: NetworkImage(audio.imageUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
                         ),
-                        child: Icon(
-                          isExpired ? LucideIcons.volumeX : LucideIcons.volume2,
-                          color: isExpired ? Colors.grey : AppColors.brandGreenDark,
-                        ),
+                        child: audio.imageUrl == null || audio.imageUrl!.isEmpty
+                            ? Icon(
+                                isExpired ? LucideIcons.volumeX : LucideIcons.volume2,
+                                color: isExpired ? Colors.grey : AppColors.brandGreenDark,
+                              )
+                            : null,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -240,6 +250,7 @@ class _CreateAudioDialogState extends State<_CreateAudioDialog> {
   String? _pickedFileName;
   Uint8List? _pickedFileBytes;
   DateTime? _selectedDateTime;
+  XFile? _pickedImage;
   bool _uploading = false;
 
   int _selectedTab = 0; // 0 for File Picker, 1 for Voice Recording
@@ -291,6 +302,24 @@ class _CreateAudioDialogState extends State<_CreateAudioDialog> {
     _previewPlayer.dispose();
     _recordTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      setState(() {
+        _pickedImage = file;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur de sélection de l\'image : $e'), backgroundColor: AppColors.danger),
+      );
+    }
   }
 
   Future<void> _pickAudioFile() async {
@@ -491,10 +520,16 @@ class _CreateAudioDialogState extends State<_CreateAudioDialog> {
         bytes: _pickedFileBytes!,
       );
 
+      String? imageUrl;
+      if (_pickedImage != null) {
+        imageUrl = await widget.storageService.uploadProductImage(file: _pickedImage!);
+      }
+
       final audioModel = AudioModel(
         title: _titleController.text.trim(),
         audioUrl: audioUrl,
         expiresAt: _selectedDateTime,
+        imageUrl: imageUrl,
       );
 
       await widget.audiosService.create(audioModel);
@@ -835,6 +870,85 @@ class _CreateAudioDialogState extends State<_CreateAudioDialog> {
                         hintText: 'Ex: Promo de la semaine',
                       ),
                       validator: (v) => v == null || v.trim().isEmpty ? 'Requis' : null,
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Promotion Image (Optional)
+                    const Text(
+                      'Image de promotion (Optionnelle)',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.mutedText),
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: _pickedImage == null ? _pickImage : null,
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: _pickedImage != null ? AppColors.brandGreen : AppColors.border,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: _pickedImage == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: const [
+                                  Icon(LucideIcons.image, color: AppColors.mutedText, size: 32),
+                                  SizedBox(height: 8),
+                                  Text(
+                                    'Ajouter une image',
+                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.mutedText),
+                                  ),
+                                ],
+                              )
+                            : Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(14),
+                                      child: FutureBuilder<Uint8List>(
+                                        future: _pickedImage!.readAsBytes(),
+                                        builder: (context, snapshot) {
+                                          if (snapshot.hasData) {
+                                            return Image.memory(
+                                              snapshot.data!,
+                                              fit: BoxFit.cover,
+                                            );
+                                          }
+                                          return const Center(child: CircularProgressIndicator());
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: GestureDetector(
+                                      onTap: () {
+                                        setState(() {
+                                          _pickedImage = null;
+                                        });
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
